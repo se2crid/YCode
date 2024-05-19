@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import * as monaco from "monaco-editor";
 import "./CodeEditor.css";
+import { useColorScheme } from "@mui/joy/styles";
 
 export default () => {
   const [editor, setEditor] =
     useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoEl = useRef(null);
+  const { mode, setMode } = useColorScheme();
 
   useEffect(() => {
-    if (monacoEl) {
+    if (!editor) {
       setEditor((editor) => {
         if (editor) return editor;
 
@@ -17,12 +19,14 @@ export default () => {
             "\n"
           ),
           language: "swift",
-          theme: "vs-dark",
+          theme: "vs-" + mode,
+          automaticLayout: true,
         });
       });
+    } else {
+      monaco.editor.setTheme("vs-" + mode);
     }
 
-    // Add a resize observer to the container of the Monaco Editor
     const resizeObserver = new ResizeObserver(() => {
       editor?.layout();
     });
@@ -30,10 +34,9 @@ export default () => {
     resizeObserver.observe(monacoEl.current!);
 
     return () => {
-      editor?.dispose();
       resizeObserver.disconnect();
     };
-  }, [monacoEl.current]);
+  }, [monacoEl.current, mode]);
 
   return <div className={"code-editor"} ref={monacoEl}></div>;
 };

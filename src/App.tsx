@@ -1,19 +1,21 @@
-import Splitter, { SplitDirection } from "@devbookhq/splitter";
-import CodeEditor from "./components/CodeEditor";
-import Tile from "./components/Tile";
-import FileExplorer from "./components/FileExplorer";
+import IDE from "./IDE";
+import { CssVarsProvider } from "@mui/joy/styles";
+import Sheet from "@mui/joy/Sheet";
+import "@fontsource/inter";
+import Onboarding from "./Onboarding";
 
 const App = () => {
   return (
-    <Splitter direction={SplitDirection.Horizontal} initialSizes={[20, 80]}>
-      <Tile title="File Explorer">
-        <FileExplorer />
-      </Tile>
-      <Splitter direction={SplitDirection.Vertical} initialSizes={[70, 30]}>
-        <CodeEditor />
-        <Tile title="Terminal">Terminal</Tile>
-      </Splitter>
-    </Splitter>
+    <CssVarsProvider defaultMode="dark">
+      <Sheet
+        sx={{
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        <Onboarding />
+      </Sheet>
+    </CssVarsProvider>
   );
 };
 

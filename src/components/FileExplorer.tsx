@@ -1,9 +1,12 @@
 import "./FileExplorer.css";
 
-export default () => {
+export interface FileExplorerProps {
+  openFolder: string;
+}
+export default ({ openFolder }: FileExplorerProps) => {
   return (
     <div className={"file-explorer"}>
-      <div>File Explorer Content</div>
+      <div>File Explorer Content: {openFolder}</div>
     </div>
   );
 };
