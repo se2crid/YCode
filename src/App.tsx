@@ -1,6 +1,5 @@
-import IDE from "./IDE";
 import { CssVarsProvider } from "@mui/joy/styles";
-import Sheet from "@mui/joy/Sheet";
+import { Sheet } from "@mui/joy";
 import "@fontsource/inter";
 import Onboarding from "./Onboarding";
 

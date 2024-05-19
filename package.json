@@ -16,6 +16,7 @@
     "@fontsource/inter": "^5.0.18",
     "@mui/joy": "^5.0.0-beta.36",
     "@tauri-apps/api": "^1",
+    "ansi-to-html": "^0.7.2",
     "monaco-editor": "^0.48.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
