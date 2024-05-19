@@ -1,0 +1,11 @@
+.tile {
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+}
+.tile-title {
+  font-size: 0.75em;
+  color: gray;
+  font-style: italic;
+  font-weight: bold;
+}
