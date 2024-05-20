@@ -14,9 +14,17 @@ export default ({ openProject }: OnboardingProps) => {
     invoke("has_theos").then((response) => {
       setHasTheos(response as boolean);
     });
+    invoke("has_wsl").then((response) => {
+      setHasWSL(response as boolean);
+    });
+    invoke("is_windows").then((response) => {
+      setIsWindows(response as boolean);
+    });
   }, []);
 
   const [hasTheos, setHasTheos] = useState<boolean | null>(null);
+  const [isWindows, setIsWindows] = useState<boolean | null>(null);
+  const [hasWSL, setHasWSL] = useState<boolean | null>(null);
   const [ready, setReady] = useState(false);
   const [updatingTheos, setUpdatingTheos] = useState(false);
   const [installingTheos, setInstallingTheos] = useState(false);
@@ -24,10 +32,12 @@ export default ({ openProject }: OnboardingProps) => {
   // Listen for the update-theos-output event
 
   useEffect(() => {
-    if (hasTheos !== null) {
-      setReady(hasTheos);
+    if (hasTheos !== null && isWindows !== null && hasWSL !== null) {
+      setReady(hasTheos && (isWindows ? hasWSL : true));
+    } else {
+      setReady(false);
     }
-  }, [hasTheos]);
+  }, [hasTheos, hasWSL, isWindows]);
 
   return (
     <div className="onboarding">
@@ -69,6 +79,52 @@ export default ({ openProject }: OnboardingProps) => {
           </Typography>
         )}
       </div>
+      {isWindows === true && (
+        <Card variant="soft" sx={{ marginBottom: "10px" }}>
+          <Typography level="h3">WSL</Typography>
+          <Typography level="body-sm">
+            Windows subsystem for linux (WSL) is required to use YCode on
+            windows. Learn more about WSL on{" "}
+            <Link
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                open("https://learn.microsoft.com/en-us/windows/wsl/");
+              }}
+            >
+              microsoft.com
+            </Link>
+            .
+          </Typography>
+          <Divider />
+          <CardContent>
+            <Typography level="body-md">
+              {hasWSL === null ? (
+                "Checking for wsl..."
+              ) : hasWSL ? (
+                "WSL is already installed on your system!"
+              ) : (
+                <>
+                  WSL is not installed on your system. Please follow the guide
+                  on{" "}
+                  <Link
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      open(
+                        "https://learn.microsoft.com/en-us/windows/wsl/install"
+                      );
+                    }}
+                  >
+                    microsoft.com
+                  </Link>
+                  .
+                </>
+              )}
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
       <Card variant="soft">
         <Typography level="h3">Theos</Typography>
         <Typography level="body-sm">
