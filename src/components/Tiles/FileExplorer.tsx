@@ -53,7 +53,13 @@ const FileItem: React.FC<FileItemProps> = ({
       <Accordion>
         <AccordionSummary>{name}</AccordionSummary>
         <AccordionDetails>
-          <AccordionGroup size="sm">
+          <AccordionGroup
+            size="sm"
+            sx={{
+              borderLeft: "1px solid var(--joy-palette-neutral-800, #171A1C)",
+            }}
+            disableDivider={true}
+          >
             {children.map((child) => (
               <FileItem
                 key={child.path}

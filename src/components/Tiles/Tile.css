@@ -3,6 +3,9 @@
   height: 100%;
   padding: 5px;
 }
+.tile-content {
+  height: 100%;
+}
 .tile-title {
   color: gray;
 }

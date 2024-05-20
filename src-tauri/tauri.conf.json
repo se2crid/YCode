@@ -17,6 +17,9 @@
         "open": true
       },
       "fs": {
+        "scope": {
+          "allow": ["**"]
+        },
         "all": true
       },
       "dialog": {

@@ -1,8 +1,9 @@
 import Splitter, { SplitDirection } from "@devbookhq/splitter";
 import CodeEditor from "./components/CodeEditor";
-import Tile from "./components/Tile";
-import FileExplorer from "./components/FileExplorer";
+import Tile from "./components/Tiles/Tile";
+import FileExplorer from "./components/Tiles/FileExplorer";
 import { useState } from "react";
+import Editor from "./components/Tiles/Editor";
 
 export interface IDEProps {
   openFolder: string;
@@ -24,7 +25,7 @@ export default ({ openFolder }: IDEProps) => {
         />
       </Tile>
       <Splitter direction={SplitDirection.Vertical} initialSizes={[70, 30]}>
-        {openFile && <CodeEditor file={openFile} />}
+        <Editor openFiles={openFiles} focusedFile={openFile} />
         <Tile title="Terminal">Terminal</Tile>
       </Splitter>
     </Splitter>

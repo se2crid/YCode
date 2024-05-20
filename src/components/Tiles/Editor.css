@@ -1,0 +1,4 @@
+.editor {
+  height: calc(100%);
+  z-index: -1;
+}
