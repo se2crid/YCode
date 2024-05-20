@@ -14,6 +14,7 @@
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
     "@fontsource/inter": "^5.0.18",
+    "@mui/icons-material": "^5.15.18",
     "@mui/joy": "^5.0.0-beta.36",
     "@tauri-apps/api": "^1",
     "ansi-to-html": "^0.7.2",

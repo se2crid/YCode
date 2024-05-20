@@ -4,8 +4,5 @@
   padding: 5px;
 }
 .tile-title {
-  font-size: 0.75em;
   color: gray;
-  font-style: italic;
-  font-weight: bold;
 }

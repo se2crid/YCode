@@ -17,7 +17,14 @@
         "open": true
       },
       "fs": {
-        "scope": ["$RESOURCE/*"]
+        "all": true
+      },
+      "dialog": {
+        "open": true,
+        "save": true
+      },
+      "path": {
+        "all": true
       }
     },
     "windows": [

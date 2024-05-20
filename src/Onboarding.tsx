@@ -4,8 +4,12 @@ import { open } from "@tauri-apps/api/shell";
 import "./Onboarding.css";
 import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
 import RunCommand from "./components/RunCommand";
+import { dialog } from "@tauri-apps/api";
 
-export default () => {
+export interface OnboardingProps {
+  openProject: (path: string) => void;
+}
+export default ({ openProject }: OnboardingProps) => {
   useMemo(() => {
     invoke("has_theos").then((response) => {
       setHasTheos(response as boolean);
@@ -43,7 +47,20 @@ export default () => {
         >
           Create New
         </Button>
-        <Button size="lg" disabled={!ready}>
+        <Button
+          size="lg"
+          disabled={!ready}
+          onClick={async () => {
+            const path = await dialog.open({
+              directory: true,
+              multiple: false,
+            });
+            if (path) {
+              if (path instanceof Array) openProject(path[0]);
+              else openProject(path);
+            }
+          }}
+        >
           Open Project
         </Button>
         {!ready && (

@@ -2,12 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import * as monaco from "monaco-editor";
 import "./CodeEditor.css";
 import { useColorScheme } from "@mui/joy/styles";
+import { fs } from "@tauri-apps/api";
 
-export default () => {
+export interface CodeEditorProps {
+  file: string;
+}
+export default ({ file }: CodeEditorProps) => {
   const [editor, setEditor] =
     useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoEl = useRef(null);
-  const { mode, setMode } = useColorScheme();
+  const { mode } = useColorScheme();
 
   useEffect(() => {
     if (!editor) {
@@ -37,6 +41,14 @@ export default () => {
       resizeObserver.disconnect();
     };
   }, [monacoEl.current, mode]);
+
+  useEffect(() => {
+    if (editor) {
+      fs.readTextFile(file).then((text) => {
+        editor.setValue(text);
+      });
+    }
+  }, [file, editor]);
 
   return <div className={"code-editor"} ref={monacoEl}></div>;
 };
