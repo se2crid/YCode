@@ -14,6 +14,12 @@ export default ({ file }: CodeEditorProps) => {
   const { mode } = useColorScheme();
 
   useEffect(() => {
+    let colorScheme = mode;
+    if (colorScheme === "system") {
+      colorScheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+    }
     if (!editor) {
       setEditor((editor) => {
         if (editor) return editor;
@@ -23,12 +29,12 @@ export default ({ file }: CodeEditorProps) => {
             "\n"
           ),
           language: "swift",
-          theme: "vs-" + mode,
+          theme: "vs-" + colorScheme,
           automaticLayout: true,
         });
       });
     } else {
-      monaco.editor.setTheme("vs-" + mode);
+      monaco.editor.setTheme("vs-" + colorScheme);
     }
 
     const resizeObserver = new ResizeObserver(() => {

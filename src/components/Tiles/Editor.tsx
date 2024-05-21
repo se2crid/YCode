@@ -1,7 +1,7 @@
 import { path } from "@tauri-apps/api";
 import CodeEditor from "../CodeEditor";
 import "./Editor.css";
-import { Tab, TabList, Tabs } from "@mui/joy";
+import { Tab, TabList, TabPanel, Tabs } from "@mui/joy";
 import { useEffect, useState } from "react";
 export interface EditorProps {
   openFiles: string[];
@@ -33,8 +33,10 @@ export default ({ openFiles, focusedFile }: EditorProps) => {
             <Tab key={openFiles[index]}>{name}</Tab>
           ))}
         </TabList>
-        {openFiles.map((file) => (
-          <CodeEditor key={file} file={file} />
+        {openFiles.map((file, index) => (
+          <TabPanel value={index} key={index} sx={{ padding: 0 }}>
+            <CodeEditor key={file} file={file} />
+          </TabPanel>
         ))}
       </Tabs>
     </div>
