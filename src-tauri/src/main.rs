@@ -11,7 +11,7 @@ fn is_windows() -> bool {
 }
 
 #[tauri::command]
-fn has_wsl() -> bool {
+async fn has_wsl() -> bool {
     if !is_windows() {
         return false;
     }
@@ -30,7 +30,24 @@ fn has_wsl() -> bool {
     false
 }
 #[tauri::command]
-fn has_theos() -> bool {
+async fn has_theos() -> bool {
+    if is_windows() {
+        if !has_wsl().await {
+            return false;
+        }
+        let output = Command::new("cmd")
+        .args(&["/C", r#"bash -ic 'test -d $THEOS/extras ; echo $?'"#])
+            .stdout(Stdio::piped())
+            .output()
+            .expect("failed to execute process");
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        if stdout.trim() == "0" {
+            return true;
+        }
+        return false;
+    }
     // If $THEOS is set and the directory exists, return true
     if let Ok(theos) = std::env::var("THEOS") {
         if std::path::Path::new(&theos).exists() {
@@ -42,17 +59,26 @@ fn has_theos() -> bool {
 
 #[tauri::command]
 async fn update_theos(window: tauri::Window) {
-    let mut command = match Command::new("sh")
-        .arg("-c")
-        .arg("$THEOS/bin/update-theos")
-        .stdout(Stdio::piped())
-        .spawn() {
-            Ok(cmd) => cmd,
-            Err(_) => {
-                window.emit("update-theos-output", "command.done.999".to_string()).expect("failed to send output");
-                return;
-            }
-        };
+    let mut command = if is_windows() {
+        let mut cmd = Command::new("wsl");
+        cmd.arg("bash")
+            .arg("-ic")
+            .arg("'$THEOS/bin/update-theos'");
+        cmd
+    } else {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c")
+            .arg("$THEOS/bin/update-theos");
+        cmd
+    };
+    command.stdout(Stdio::piped());
+    let mut command = match command.spawn() {
+        Ok(cmd) => cmd,
+        Err(_) => {
+            window.emit("update-theos-output", "command.done.999".to_string()).expect("failed to send output");
+            return;
+        }
+    };
 
     let output = match command.stdout.take() {
         Some(out) => out,
