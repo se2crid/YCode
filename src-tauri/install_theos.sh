@@ -68,6 +68,14 @@ elif [[ $CSHELL == zsh ]]; then
 # 	SHELL_ENV="$HOME/.cshrc"
 fi
 
+run_with_sudo() {
+	if [[ $(uname -r | sed -n 's/.*\( *Microsoft *\).*/\L\1/ip') == microsoft ]]; then
+        echo "$SUDO_PASSWORD" | sudo -S "$@"
+    else
+        pkexec "$@"
+	fi
+}
+
 set_theos() {
 	# Check for $THEOS env var
 	update "Checking for \$THEOS environment variable..."
@@ -145,34 +153,34 @@ linux() {
 	update "Preparing to install dependencies. Please enter your password if prompted:"
 	case $DISTRO in
 		debian)
-			pkexec apt update || true
-			pkexec apt install -y build-essential fakeroot rsync curl perl zip git libxml2 \
+			run_with_sudo apt update || true
+			run_with_sudo apt install -y build-essential fakeroot rsync curl perl zip git libxml2 \
 				&& update "Dependencies have been successfully installed!" \
-				|| (error "Dependency install command seems to have encountered an error. Please see the log above."; exit 3)
+				|| (error "Dependency install command seems to have encountered an error. Your password may have been incorrect."; exit 3)
 			;;
 		arch)
-			pkexec pacman -Syu || true
-			pkexec pacman -S --needed --noconfirm base-devel libbsd fakeroot openssl rsync curl perl zip git libxml2 \
+			run_with_sudo pacman -Syu || true
+			run_with_sudo pacman -S --needed --noconfirm base-devel libbsd fakeroot openssl rsync curl perl zip git libxml2 \
 				&& update "Dependencies have been successfully installed!" \
-				|| (error "Dependency install command seems to have encountered an error. Please see the log above."; exit 3)
+				|| (error "Dependency install command seems to have encountered an error. Your password may have been incorrect."; exit 3)
 			;;
 		redhat)
-			pkexec dnf --refresh || true
-			pkexec dnf group install -y "C Development Tools and Libraries" \
+			run_with_sudo dnf --refresh || true
+			run_with_sudo dnf group install -y "C Development Tools and Libraries" \
 				&& update "Dependencies have been successfully installed!" \
-				|| (error "Dependency install command seems to have encountered an error. Please see the log above."; exit 3)
-			pkexec dnf install -y fakeroot lzma libbsd rsync curl perl zip git libxml2 \
+				|| (error "Dependency install command seems to have encountered an error. Your password may have been incorrect."; exit 3)
+			run_with_sudo dnf install -y fakeroot lzma libbsd rsync curl perl zip git libxml2 \
 				&& update "Other dependencies have been successfully installed!" \
-				|| (error "Other dependency install command seems to have encountered an error. Please see the log above."; exit 3)
+				|| (error "Other Dependency install command seems to have encountered an error. Your password may have been incorrect."; exit 3)
 			;;
 		suse)
-			pkexec zypper refresh || true
-			pkexec zypper install -y -t pattern devel_basis \
+			run_with_sudo zypper refresh || true
+			run_with_sudo zypper install -y -t pattern devel_basis \
 				&& update "Dependencies have been successfully installed!" \
-				|| (error "Dependency install command seems to have encountered an error. Please see the log above."; exit 3)
-			pkexec zypper install -y fakeroot libbsd0 rsync curl perl zip git libxml2 \
+				|| (error "Dependency install command seems to have encountered an error. Your password may have been incorrect."; exit 3)
+			run_with_sudo zypper install -y fakeroot libbsd0 rsync curl perl zip git libxml2 \
 				&& update "Other dependencies have been successfully installed!" \
-				|| (error "Other dependency install command seems to have encountered an error. Please see the log above."; exit 3)
+				|| (error "Other Dependency install command seems to have encountered an error. Your password may have been incorrect."; exit 3)
 			;;
 		*)
 			error "The dependencies for your distro are unknown to this installer. Note that they will need to be determined before Theos can be installed and/or function properly."
@@ -187,7 +195,7 @@ linux() {
 		VERSION=$(uname -r | sed 's/.*\([[:digit:]]\)[[:space:]]*/\1/')
 		if [[ $VERSION -eq 1 ]]; then
 			update "WSL1! Need to fix fakeroot..."
-			pkexec update-alternatives --set fakeroot /usr/bin/fakeroot-tcp \
+			run_with_sudo update-alternatives --set fakeroot /usr/bin/fakeroot-tcp \
 				&& update "fakeroot fixed!" \
 				|| (error "fakeroot fix seems to have encountered an error. Please see the log above."; exit 10)
 		else
@@ -208,34 +216,34 @@ linux() {
 		update "A toolchain does not appear to be installed."
         case $DISTRO in
             debian)
-                pkexec apt install -y libz3-dev zstd
+                run_with_sudo apt install -y libz3-dev zstd
                 ;;
             arch)
-                pkexec pacman -S --needed --noconfirm libedit z3 zstd
+                run_with_sudo pacman -S --needed --noconfirm libedit z3 zstd
                 # libz3-dev equivalent is z3 and we need to create lib version queried
                 LATEST_LIBZ3="$(ls -v /usr/lib/ | grep libz3 | tail -n 1)"
-                pkexec ln -sf /usr/lib/$LATEST_LIBZ3 /usr/lib/libz3.so.4
+                run_with_sudo ln -sf /usr/lib/$LATEST_LIBZ3 /usr/lib/libz3.so.4
                 # toolchain looks for a specific libedit
                 LATEST_LIBEDIT="$(ls -v /usr/lib/ | grep libedit | tail -n 1)"
-                pkexec ln -sf /usr/lib/$LATEST_LIBEDIT /usr/lib/libedit.so.2
+                run_with_sudo ln -sf /usr/lib/$LATEST_LIBEDIT /usr/lib/libedit.so.2
                 ;;
             redhat)
-                pkexec dnf install -y z3-libs zstd
+                run_with_sudo dnf install -y z3-libs zstd
                 # libz3-dev equivalent is z3-libs and ...
                 LATEST_LIBZ3="$(ls -v /usr/lib64/ | grep libz3 | tail -n 1)"
-                pkexec ln -sf /usr/lib64/$LATEST_LIBZ3 /usr/lib64/libz3.so.4
+                run_with_sudo ln -sf /usr/lib64/$LATEST_LIBZ3 /usr/lib64/libz3.so.4
                 # toolchain looks for a specific libedit
                 LATEST_LIBEDIT="$(ls -v /usr/lib64/ | grep libedit | tail -n 1)"
-                pkexec ln -sf /usr/lib64/$LATEST_LIBEDIT /usr/lib64/libedit.so.2
+                run_with_sudo ln -sf /usr/lib64/$LATEST_LIBEDIT /usr/lib64/libedit.so.2
                 ;;
             suse)
-                pkexec zypper install -y $(zypper search libz3 | tail -n 1 | cut -d "|" -f2) zstd
+                run_with_sudo zypper install -y $(zypper search libz3 | tail -n 1 | cut -d "|" -f2) zstd
                 # libz3-dev equivalent is libz3-* and ...
                 LATEST_LIBZ3="$(ls -v /usr/lib64/ | grep libz3 | tail -n 1)"
-                pkexec ln -sf /usr/lib64/$LATEST_LIBZ3 /usr/lib64/libz3.so.4
+                run_with_sudo ln -sf /usr/lib64/$LATEST_LIBZ3 /usr/lib64/libz3.so.4
                 # toolchain looks for a specific libedit
                 LATEST_LIBEDIT="$(ls -v /usr/lib64/ | grep libedit | tail -n 1)"
-                pkexec ln -sf /usr/lib64/$LATEST_LIBEDIT /usr/lib64/libedit.so.2
+                run_with_sudo ln -sf /usr/lib64/$LATEST_LIBEDIT /usr/lib64/libedit.so.2
                 ;;
         esac
         mkdir -p $THEOS/toolchain/linux/iphone $THEOS/toolchain/swift

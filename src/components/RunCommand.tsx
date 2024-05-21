@@ -1,6 +1,13 @@
 // Create a simple component to display text in a console-style in a mui joy modal.
 
-import { Modal, ModalClose, ModalDialog, Typography } from "@mui/joy";
+import {
+  Button,
+  Input,
+  Modal,
+  ModalClose,
+  ModalDialog,
+  Typography,
+} from "@mui/joy";
 import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
@@ -17,6 +24,7 @@ interface RunCommandProps {
   listener: string;
   run: boolean;
   setRun: (run: boolean) => void;
+  askPassword?: boolean;
 }
 
 export default ({
@@ -27,8 +35,12 @@ export default ({
   setRun,
   failedMessage,
   doneMessage,
+  askPassword,
 }: RunCommandProps) => {
   const [open, setOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [password, setPassword] = useState("");
+
   const [body, setBody] = useState("");
   const [html, setHtml] = useState("");
   const [status, setStatus] = useState("none");
@@ -36,13 +48,26 @@ export default ({
   const preRef = useRef<HTMLPreElement | null>(null);
   const listenerAdded = useRef(false);
   const hasRun = useRef(false);
+  const passwordAsked = useRef(false);
 
-  useEffect(() => {
-    if (run && !hasRun.current) {
-      setOpen(true);
-      setStatus("running");
+  function startCommand() {
+    if (hasRun.current) return;
+    setOpen(true);
+    setStatus("running");
+    if (askPassword) {
+      invoke(command, { password });
+      setPassword("");
+    } else {
       invoke(command);
-      hasRun.current = true;
+    }
+    hasRun.current = true;
+  }
+  useEffect(() => {
+    if (run && askPassword && !passwordAsked.current) {
+      setPasswordOpen(true);
+      passwordAsked.current = true;
+    } else if (run && !hasRun.current) {
+      startCommand();
     }
   }, [run]);
 
@@ -84,34 +109,73 @@ export default ({
   }, [html]);
 
   return (
-    <Modal
-      open={open}
-      onClose={
-        status === "done" || status === "failed"
-          ? () => {
-              setOpen(false);
-              setRun(false);
-              setBody("");
-              setHtml("");
-              setStatus("none");
-              hasRun.current = false;
-            }
-          : () => {}
-      }
-    >
-      <ModalDialog>
-        {(status === "done" || status === "failed") && <ModalClose />}
-        <Typography level="h2">
-          {status === "failed"
-            ? failedMessage ?? "Failed"
-            : status === "done"
-            ? doneMessage ?? "Done"
-            : title}
-        </Typography>
-        <div className="console">
-          <pre ref={preRef} dangerouslySetInnerHTML={{ __html: html }}></pre>
-        </div>
-      </ModalDialog>
-    </Modal>
+    <>
+      <Modal
+        open={passwordOpen}
+        onClose={() => {
+          setPasswordOpen(false);
+          setPassword("");
+          passwordAsked.current = false;
+        }}
+      >
+        <ModalDialog>
+          <Typography level="body-md">
+            Enter your WSL sudo password. It will not be saved.
+          </Typography>
+          <form
+            onSubmit={() => {
+              setPasswordOpen(false);
+              startCommand();
+            }}
+          >
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <Button
+              type="submit"
+              variant="soft"
+              sx={{
+                margin: "10px 0",
+                width: "100%",
+              }}
+            >
+              Submit
+            </Button>
+          </form>
+        </ModalDialog>
+      </Modal>
+      <Modal
+        open={open}
+        onClose={
+          status === "done" || status === "failed"
+            ? () => {
+                setOpen(false);
+                setRun(false);
+                setBody("");
+                setHtml("");
+                setStatus("none");
+                hasRun.current = false;
+                passwordAsked.current = false;
+              }
+            : () => {}
+        }
+      >
+        <ModalDialog>
+          {(status === "done" || status === "failed") && <ModalClose />}
+          <Typography level="h3">
+            {status === "failed"
+              ? failedMessage ?? "Failed"
+              : status === "done"
+              ? doneMessage ?? "Done"
+              : title}
+          </Typography>
+          <div className="console">
+            <pre ref={preRef} dangerouslySetInnerHTML={{ __html: html }}></pre>
+          </div>
+        </ModalDialog>
+      </Modal>
+    </>
   );
 };

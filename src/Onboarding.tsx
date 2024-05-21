@@ -185,25 +185,30 @@ export default ({ openProject }: OnboardingProps) => {
                 setRun={setUpdatingTheos}
               />
             )}
-            <Button
-              sx={{
-                margin: hasTheos ? "10px" : "0",
-              }}
-              variant="soft"
-              onClick={() => {
-                setInstallingTheos(true);
-              }}
-            >
-              {hasTheos ? "Reinstall Theos" : "Install Theos"}
-            </Button>
+            {hasTheos !== null && (
+              <Button
+                sx={{
+                  margin: hasTheos ? "10px" : "0",
+                }}
+                variant="soft"
+                onClick={() => {
+                  setInstallingTheos(true);
+                }}
+              >
+                {hasTheos ? "Reinstall Theos" : "Install Theos"}
+              </Button>
+            )}
             <RunCommand
               title="Installing Theos..."
-              command="install_theos"
+              command={
+                isWindows === true ? "install_theos_windows" : "install_theos"
+              }
               listener="install-theos-output"
               failedMessage="Failed to install theos"
               doneMessage="Theos has been installed! Please restart YCode."
               run={installingTheos}
               setRun={setInstallingTheos}
+              askPassword={isWindows === true}
             />
           </div>
         </CardContent>
