@@ -38,9 +38,7 @@ export default ({ file, setUnsaved, focused }: CodeEditorProps) => {
         if (editor) return editor;
 
         return monaco.editor.create(monacoEl.current!, {
-          value: ["func x() {", '\tconsole.log("Hello world!");', "}"].join(
-            "\n"
-          ),
+          value: "",
           language: "swift",
           theme: "vs-" + colorScheme,
           automaticLayout: true,

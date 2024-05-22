@@ -14,10 +14,12 @@
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
     "@fontsource/inter": "^5.0.18",
+    "@million/lint": "latest",
     "@mui/icons-material": "^5.15.18",
     "@mui/joy": "^5.0.0-beta.36",
     "@tauri-apps/api": "^1",
     "ansi-to-html": "^0.7.2",
+    "million": "latest",
     "monaco-editor": "^0.48.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
@@ -28,6 +30,7 @@
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.0.2",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vite-plugin-monaco-editor": "^1.1.0"
   }
 }

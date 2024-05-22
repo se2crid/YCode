@@ -9,54 +9,68 @@ export interface EditorProps {
 }
 
 export default ({ openFiles, focusedFile }: EditorProps) => {
-  const [tabNames, setTabNames] = useState<string[]>([]);
+  const [tabs, setTabs] = useState<
+    {
+      name: string;
+      file: string;
+      index: number;
+    }[]
+  >([]);
   const [unsavedFiles, setUnsavedFiles] = useState<string[]>([]);
-  const [focused, setFocused] = useState<string | null>(null);
+  const [focused, setFocused] = useState<number>();
 
   useEffect(() => {
-    if (focusedFile !== null) setFocused(focusedFile);
-  }, [focusedFile]);
+    if (focusedFile !== null) setFocused(openFiles.indexOf(focusedFile));
+  }, [focusedFile, openFiles]);
 
   useEffect(() => {
     const fetchTabNames = async () => {
       const names = await Promise.all(
         openFiles.map((file) => path.basename(file))
       );
-      setTabNames(names);
+      setTabs(
+        names.map((name, index) => ({
+          name,
+          file: openFiles[index],
+          index,
+        }))
+      );
     };
 
     fetchTabNames();
   }, [openFiles]);
+
   return (
     <div className={"editor"}>
       <Tabs
         sx={{ height: "100%", overflow: "hidden" }}
         className={"editor-tabs"}
-        defaultValue={focusedFile !== null ? openFiles.indexOf(focusedFile) : 0}
+        value={focused ?? 0}
         onChange={(_, newValue) => {
           if (newValue === null) return;
-          setFocused(openFiles[newValue as number]);
+          setFocused(newValue as number);
         }}
       >
         <TabList>
-          {tabNames.map((name, index) => (
+          {tabs.map((tab, index) => (
             <Tab key={openFiles[index]}>
-              {name}
+              {tab.name}
               {unsavedFiles.indexOf(openFiles[index]) != -1 ? " •" : ""}
             </Tab>
           ))}
         </TabList>
-        {openFiles.map((file, index) => (
+        {tabs.map((tab, index) => (
           <TabPanel value={index} key={index} sx={{ padding: 0 }}>
             <CodeEditor
-              focused={focused === file}
-              key={file}
-              file={file}
+              focused={index === focused}
+              key={tab.file}
+              file={tab.file}
               setUnsaved={(unsaved: boolean) => {
-                if (unsaved) setUnsavedFiles((unsaved) => [...unsaved, file]);
+                if (unsaved)
+                  setUnsavedFiles((unsaved) => [...unsaved, tab.file]);
                 else
                   setUnsavedFiles((unsaved) =>
-                    unsaved.filter((unsavedFile) => unsavedFile !== file)
+                    unsaved.filter((unsavedFile) => unsavedFile !== tab.file)
                   );
               }}
             />

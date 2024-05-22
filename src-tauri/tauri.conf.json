@@ -18,7 +18,8 @@
       },
       "fs": {
         "scope": {
-          "allow": ["**"]
+          "allow": ["**"],
+          "requireLiteralLeadingDot": false
         },
         "all": true
       },

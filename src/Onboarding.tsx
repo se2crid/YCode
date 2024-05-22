@@ -166,9 +166,6 @@ export default ({ openProject }: OnboardingProps) => {
                 variant="soft"
                 onClick={() => {
                   setUpdatingTheos(true);
-                  // invoke("update_theos").then(() => {
-                  //   setUpdatingTheos(false);
-                  // });
                 }}
               >
                 Update Theos

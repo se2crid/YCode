@@ -6,7 +6,7 @@ import {
   Button,
 } from "@mui/joy";
 import "./FileExplorer.css";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fs, path } from "@tauri-apps/api";
 
 interface FileItemProps {
@@ -20,6 +20,10 @@ const FileItem: React.FC<FileItemProps> = ({
   isDirectory,
   setOpenFile,
 }) => {
+  const handleOpenFile = useCallback(() => {
+    setOpenFile(filePath);
+  }, [filePath]);
+
   const [children, setChildren] = useState<
     {
       path: string;
@@ -27,11 +31,12 @@ const FileItem: React.FC<FileItemProps> = ({
     }[]
   >([]);
   const [name, setName] = useState("");
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     (async () => {
       setName(await path.basename(filePath));
-      if (!isDirectory) return;
+      if (!isDirectory || !expanded) return;
       try {
         const files = await fs.readDir(filePath);
         setChildren(
@@ -46,11 +51,18 @@ const FileItem: React.FC<FileItemProps> = ({
         console.error("Failed to read file:", filePath, error);
       }
     })();
-  }, [filePath]);
+  }, [filePath, expanded]);
+
+  const handleAccordionChange = (
+    _: React.SyntheticEvent,
+    isExpanded: boolean
+  ) => {
+    setExpanded(isExpanded);
+  };
 
   if (isDirectory) {
     return (
-      <Accordion>
+      <Accordion onChange={handleAccordionChange}>
         <AccordionSummary>{name}</AccordionSummary>
         <AccordionDetails>
           <AccordionGroup
@@ -76,7 +88,7 @@ const FileItem: React.FC<FileItemProps> = ({
     return (
       <Button
         size="sm"
-        onClick={() => setOpenFile(filePath)}
+        onClick={handleOpenFile}
         variant="plain"
         sx={{ justifyContent: "flex-start" }}
       >
