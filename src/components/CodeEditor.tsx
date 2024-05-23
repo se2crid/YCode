@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -15,6 +16,7 @@ export interface CodeEditorProps {
   setUnsaved: (unsaved: boolean) => void;
 }
 export interface CodeEditorHandles {
+  file: string;
   saveFile: () => void;
 }
 const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
@@ -25,19 +27,27 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
     const { mode } = useColorScheme();
     const [originalText, setOriginalText] = useState("");
 
-    const saveFile = () => {
-      if (editor) {
-        const currentText = editor.getValue();
+    const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+
+    useEffect(() => {
+      editorRef.current = editor;
+    }, [editor]);
+
+    const saveFile = useCallback(() => {
+      console.log("Saving file", file, editorRef.current?.getValue());
+      if (editorRef.current) {
+        const currentText = editorRef.current.getValue();
         setUnsaved(false);
-        // fs.writeFile({ path: file, contents: currentText }).then(() => {
-        //   setOriginalText(currentText);
-        //   setUnsaved(false); // Assuming setUnsaved is a toggle function
-        // });
+        fs.writeFile({ path: file, contents: currentText }).then(() => {
+          setOriginalText(currentText);
+          setUnsaved(false);
+        });
       }
-    };
+    }, [file, setUnsaved]);
 
     useImperativeHandle(ref, () => ({
       saveFile,
+      file,
     }));
 
     useEffect(() => {

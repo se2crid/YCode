@@ -19,31 +19,22 @@ export default ({ openFiles, focusedFile, setSaveFile }: EditorProps) => {
   >([]);
   const [unsavedFiles, setUnsavedFiles] = useState<string[]>([]);
   const [focused, setFocused] = useState<number>();
+  const editors = useRef<(CodeEditorHandles | null)[]>([]);
+
+  useEffect(() => {
+    editors.current = editors.current.slice(0, openFiles.length);
+  }, [openFiles]);
 
   useEffect(() => {
     if (focusedFile !== null) setFocused(openFiles.indexOf(focusedFile));
   }, [focusedFile, openFiles]);
 
   useEffect(() => {
-    if (focused != undefined) console.log(focused, openFiles[focused]);
-  }, [focused, openFiles]);
-
-  const [focusedEditor, setFocusedEditor] = useState<CodeEditorHandles | null>(
-    null
-  );
-
-  let saveFocusedEditor = useCallback((fE: CodeEditorHandles) => {
-    setFocusedEditor(fE);
-  }, []);
-
-  useEffect(() => {
-    console.log("focusedEditora aa", focusedEditor);
-    if (focusedEditor === null) {
-      setSaveFile(() => {});
-    } else {
-      setSaveFile(() => focusedEditor.saveFile);
-    }
-  }, [focusedEditor]);
+    if (focused === undefined) return;
+    let e = editors.current[focused];
+    if (e === undefined || e === null) return;
+    setSaveFile(() => e.saveFile);
+  }, [focused, tabs]);
 
   useEffect(() => {
     const fetchTabNames = async () => {
@@ -84,7 +75,7 @@ export default ({ openFiles, focusedFile, setSaveFile }: EditorProps) => {
         {tabs.map((tab, index) => (
           <TabPanel value={index} key={index} sx={{ padding: 0 }}>
             <CodeEditor
-              ref={index === focused ? saveFocusedEditor : undefined}
+              ref={(el) => (editors.current[index] = el)}
               key={tab.file}
               file={tab.file}
               setUnsaved={(unsaved: boolean) => {

@@ -3,124 +3,126 @@ import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
 import { useEffect, useRef, useState } from "react";
 import MenuBarButton from "./MenuBarButton";
-import MenuGroup from "./MenuGroup";
+import MenuGroup, { MenuBarData } from "./MenuGroup";
 import { Shortcut, acceleratorPresssed } from "../../Shortcut";
 
+const bar = [
+  {
+    label: "File",
+    items: [
+      {
+        label: "New",
+        items: [
+          {
+            name: "New File...",
+            shortcut: "Ctrl+N",
+            callback: () => {
+              console.log("New File!");
+            },
+          },
+          {
+            name: "New Project...",
+            callback: () => {
+              console.log("New Project!");
+            },
+          },
+        ],
+      },
+      {
+        label: "Open",
+        items: [
+          {
+            name: "Open File...",
+            shortcut: "Ctrl+O",
+            callback: () => {
+              console.log("Open File!");
+            },
+          },
+          {
+            name: "Open Workspace...",
+            callback: () => {
+              console.log("Open Workspace!");
+            },
+          },
+        ],
+      },
+      {
+        label: "Save",
+        items: [
+          {
+            name: "Save",
+            shortcut: "Ctrl+S",
+            callbackName: "save",
+          },
+          {
+            name: "Save As...",
+            shortcut: "Ctrl+Shift+S",
+            callback: () => {
+              console.log("Save As!");
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Edit",
+    items: [
+      {
+        label: "Timeline",
+        items: [
+          {
+            name: "Undo",
+            shortcut: "Ctrl+Z",
+            callback: () => {
+              console.log("Undo!");
+            },
+          },
+          {
+            name: "Redo",
+            shortcut: "Ctrl+Shift+Z",
+            callback: () => {
+              console.log("Redo!");
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    label: "View",
+    items: [],
+  },
+  {
+    label: "Help",
+    items: [],
+  },
+] as MenuBarData;
+
 export interface MenuBarProps {
-  save: () => void;
+  callbacks: Record<string, () => void>;
 }
-export default function MenuBar({ save }: MenuBarProps) {
+export default function MenuBar({ callbacks }: MenuBarProps) {
   const menus = useRef<Array<HTMLButtonElement>>([]);
   const [menuIndex, setMenuIndex] = useState<null | number>(null);
-  const bar = useRef<
-    {
-      label: string;
-      items: MenuGroup[];
-    }[]
-  >([
-    {
-      label: "File",
-      items: [
-        {
-          label: "New",
-          items: [
-            {
-              name: "New File...",
-              shortcut: "Ctrl+N",
-              callback: () => {
-                console.log("New File!");
-              },
-            },
-            {
-              name: "New Project...",
-              callback: () => {
-                console.log("New Project!");
-              },
-            },
-          ],
-        },
-        {
-          label: "Open",
-          items: [
-            {
-              name: "Open File...",
-              shortcut: "Ctrl+O",
-              callback: () => {
-                console.log("Open File!");
-              },
-            },
-            {
-              name: "Open Workspace...",
-              callback: () => {
-                console.log("Open Workspace!");
-              },
-            },
-          ],
-        },
-        {
-          label: "Save",
-          items: [
-            {
-              name: "Save",
-              shortcut: "Ctrl+S",
-              callback: save,
-            },
-            {
-              name: "Save As...",
-              shortcut: "Ctrl+Shift+S",
-              callback: () => {
-                console.log("Save As!");
-              },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      label: "Edit",
-      items: [
-        {
-          label: "Timeline",
-          items: [
-            {
-              name: "Undo",
-              shortcut: "Ctrl+Z",
-              callback: () => {
-                console.log("Undo!");
-              },
-            },
-            {
-              name: "Redo",
-              shortcut: "Ctrl+Shift+Z",
-              callback: () => {
-                console.log("Redo!");
-              },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      label: "View",
-      items: [],
-    },
-    {
-      label: "Help",
-      items: [],
-    },
-  ]);
 
   useEffect(() => {
     const items: { shortcut: Shortcut; callback: () => void }[] = [];
 
-    for (const menu of bar.current) {
+    for (const menu of bar) {
       for (const group of menu.items) {
         for (const item of group.items) {
           if (item.shortcut) {
             const shortcut = Shortcut.fromString(item.shortcut);
+            let callback;
+            if (item.callbackName !== undefined) {
+              callback = callbacks[item.callbackName];
+            } else {
+              callback = item.callback ?? (() => {});
+            }
             items.push({
               shortcut,
-              callback: item.callback,
+              callback,
             });
           }
         }
@@ -133,6 +135,11 @@ export default function MenuBar({ save }: MenuBarProps) {
       for (const item of items) {
         if (item.shortcut.pressed(event)) {
           event.preventDefault();
+          console.log(
+            "Shortcut pressed",
+            item.shortcut.toString(),
+            item.callback
+          );
           item.callback();
         }
       }
@@ -143,7 +150,7 @@ export default function MenuBar({ save }: MenuBarProps) {
     return () => {
       document.removeEventListener("keydown", handleGlobalKeyDown);
     };
-  }, [bar]);
+  }, [bar, callbacks]);
 
   const openNextMenu = () => {
     if (typeof menuIndex === "number") {
@@ -205,8 +212,8 @@ export default function MenuBar({ save }: MenuBarProps) {
         width: "100%",
       }}
     >
-      {bar.current &&
-        bar.current.map((menu, index) => (
+      {bar &&
+        bar.map((menu, index) => (
           <ListItem key={index}>
             <MenuBarButton
               open={menuIndex === index}
@@ -235,6 +242,7 @@ export default function MenuBar({ save }: MenuBarProps) {
                     handleKeyDown={handleKeyDown}
                     resetMenuIndex={() => setMenuIndex(null)}
                     groups={menu.items}
+                    callbacks={callbacks}
                   />
                 </Menu>
               }

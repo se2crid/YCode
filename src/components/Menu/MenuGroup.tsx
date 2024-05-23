@@ -5,7 +5,8 @@ import { Fragment } from "react/jsx-runtime";
 type MenuItem = {
   name: string;
   shortcut?: string;
-  callback: () => void;
+  callback?: () => void;
+  callbackName?: string;
 };
 
 type MenuGroup = {
@@ -13,10 +14,16 @@ type MenuGroup = {
   items: MenuItem[];
 };
 
+export type MenuBarData = {
+  label: string;
+  items: MenuGroup[];
+}[];
+
 export interface MenuGroupProps {
   groups: MenuGroup[];
   handleKeyDown: (event: React.KeyboardEvent) => void;
   resetMenuIndex: () => void;
+  callbacks: Record<string, () => void>;
 }
 
 const renderShortcut = (text: string) => (
@@ -28,6 +35,7 @@ const renderShortcut = (text: string) => (
 const MenuGroup: React.FC<MenuGroupProps> = ({
   groups,
   handleKeyDown,
+  callbacks,
   resetMenuIndex,
 }) => {
   return (
@@ -41,7 +49,13 @@ const MenuGroup: React.FC<MenuGroupProps> = ({
                   key={itemIndex}
                   onClick={() => {
                     resetMenuIndex();
-                    item.callback();
+                    let callback;
+                    if (item.callbackName !== undefined) {
+                      callback = callbacks[item.callbackName];
+                    } else {
+                      callback = item.callback ?? (() => {});
+                    }
+                    callback();
                   }}
                   onKeyDown={handleKeyDown}
                 >
