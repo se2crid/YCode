@@ -2,12 +2,17 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import { Sheet } from "@mui/joy";
 import "@fontsource/inter";
 import Onboarding from "./Onboarding";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import IDE from "./IDE";
 
 const App = () => {
   const [openFolder, setOpenFolder] = useState<string | null>(null);
   const [page, setPage] = useState("onboarding");
+
+  const openProject = useCallback((path: string) => {
+    setOpenFolder(path);
+    setPage("ide");
+  }, []);
 
   return (
     <CssVarsProvider defaultMode="system">
@@ -18,14 +23,7 @@ const App = () => {
           overflow: "auto",
         }}
       >
-        {page === "onboarding" && (
-          <Onboarding
-            openProject={(path) => {
-              setOpenFolder(path);
-              setPage("ide");
-            }}
-          />
-        )}
+        {page === "onboarding" && <Onboarding openProject={openProject} />}
         {page === "ide" && <IDE openFolder={openFolder!} />}
       </Sheet>
     </CssVarsProvider>

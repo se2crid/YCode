@@ -1,21 +1,149 @@
 import Menu from "@mui/joy/Menu";
-import MenuItem from "@mui/joy/MenuItem";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
-import ListDivider from "@mui/joy/ListDivider";
-import Typography from "@mui/joy/Typography";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MenuBarButton from "./MenuBarButton";
+import MenuGroup from "./MenuGroup";
+import { Shortcut, acceleratorPresssed } from "../../Shortcut";
 
-export default function MenuBar() {
+export interface MenuBarProps {
+  save: () => void;
+}
+export default function MenuBar({ save }: MenuBarProps) {
   const menus = useRef<Array<HTMLButtonElement>>([]);
   const [menuIndex, setMenuIndex] = useState<null | number>(null);
+  const bar = useRef<
+    {
+      label: string;
+      items: MenuGroup[];
+    }[]
+  >([
+    {
+      label: "File",
+      items: [
+        {
+          label: "New",
+          items: [
+            {
+              name: "New File...",
+              shortcut: "Ctrl+N",
+              callback: () => {
+                console.log("New File!");
+              },
+            },
+            {
+              name: "New Project...",
+              callback: () => {
+                console.log("New Project!");
+              },
+            },
+          ],
+        },
+        {
+          label: "Open",
+          items: [
+            {
+              name: "Open File...",
+              shortcut: "Ctrl+O",
+              callback: () => {
+                console.log("Open File!");
+              },
+            },
+            {
+              name: "Open Workspace...",
+              callback: () => {
+                console.log("Open Workspace!");
+              },
+            },
+          ],
+        },
+        {
+          label: "Save",
+          items: [
+            {
+              name: "Save",
+              shortcut: "Ctrl+S",
+              callback: save,
+            },
+            {
+              name: "Save As...",
+              shortcut: "Ctrl+Shift+S",
+              callback: () => {
+                console.log("Save As!");
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      label: "Edit",
+      items: [
+        {
+          label: "Timeline",
+          items: [
+            {
+              name: "Undo",
+              shortcut: "Ctrl+Z",
+              callback: () => {
+                console.log("Undo!");
+              },
+            },
+            {
+              name: "Redo",
+              shortcut: "Ctrl+Shift+Z",
+              callback: () => {
+                console.log("Redo!");
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      label: "View",
+      items: [],
+    },
+    {
+      label: "Help",
+      items: [],
+    },
+  ]);
 
-  const renderShortcut = (text: string) => (
-    <Typography level="body-sm" textColor="text.tertiary" ml="auto">
-      {text}
-    </Typography>
-  );
+  useEffect(() => {
+    const items: { shortcut: Shortcut; callback: () => void }[] = [];
+
+    for (const menu of bar.current) {
+      for (const group of menu.items) {
+        for (const item of group.items) {
+          if (item.shortcut) {
+            const shortcut = Shortcut.fromString(item.shortcut);
+            items.push({
+              shortcut,
+              callback: item.callback,
+            });
+          }
+        }
+      }
+    }
+
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if (!acceleratorPresssed(event)) return;
+
+      for (const item of items) {
+        if (item.shortcut.pressed(event)) {
+          event.preventDefault();
+          item.callback();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleGlobalKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [bar]);
 
   const openNextMenu = () => {
     if (typeof menuIndex === "number") {
@@ -64,16 +192,11 @@ export default function MenuBar() {
       }
     };
 
-  const itemProps = {
-    onClick: () => setMenuIndex(null),
-    onKeyDown: handleKeyDown,
-  };
-
   return (
     <List
       size="sm"
       orientation="horizontal"
-      aria-label="Example application menu bar"
+      aria-label="YCode menu bar"
       role="menubar"
       data-joy-color-scheme="dark"
       sx={{
@@ -82,149 +205,44 @@ export default function MenuBar() {
         width: "100%",
       }}
     >
-      <ListItem>
-        <MenuBarButton
-          open={menuIndex === 0}
-          onOpen={() => {
-            setMenuIndex((prevMenuIndex) =>
-              prevMenuIndex === null ? 0 : null
-            );
-          }}
-          onKeyDown={createHandleButtonKeyDown(0)}
-          onMouseEnter={() => {
-            if (typeof menuIndex === "number") {
-              setMenuIndex(0);
-            }
-          }}
-          ref={(instance) => {
-            menus.current[0] = instance!;
-          }}
-          menu={
-            <Menu
-              size="sm"
-              onClose={() => {
-                menus.current[0]?.focus();
+      {bar.current &&
+        bar.current.map((menu, index) => (
+          <ListItem key={index}>
+            <MenuBarButton
+              open={menuIndex === index}
+              onOpen={() => {
+                setMenuIndex((prevMenuIndex) =>
+                  prevMenuIndex === null ? index : null
+                );
               }}
-            >
-              <ListItem nested>
-                <List aria-label="New">
-                  <MenuItem {...itemProps}>New File</MenuItem>
-                  <MenuItem {...itemProps}>
-                    New Text File... {renderShortcut("⌥ ⌘ N")}
-                  </MenuItem>
-                  <MenuItem {...itemProps}>
-                    New Window {renderShortcut("⇧ ⌘ N")}
-                  </MenuItem>
-                </List>
-              </ListItem>
-              <ListDivider />
-              <ListItem nested>
-                <List aria-label="Open">
-                  <MenuItem {...itemProps}>
-                    Open {renderShortcut("⌘ O")}
-                  </MenuItem>
-                  <MenuItem {...itemProps}>Open Folder</MenuItem>
-                </List>
-              </ListItem>
-            </Menu>
-          }
-        >
-          File
-        </MenuBarButton>
-      </ListItem>
-      <ListItem>
-        <MenuBarButton
-          open={menuIndex === 1}
-          onOpen={() => {
-            setMenuIndex((prevMenuIndex) =>
-              prevMenuIndex === null ? 1 : null
-            );
-          }}
-          onKeyDown={createHandleButtonKeyDown(1)}
-          onMouseEnter={() => {
-            if (typeof menuIndex === "number") {
-              setMenuIndex(1);
-            }
-          }}
-          ref={(instance) => {
-            menus.current[1] = instance!;
-          }}
-          menu={
-            <Menu
-              size="sm"
-              onClose={() => {
-                menus.current[1]?.focus();
+              onKeyDown={createHandleButtonKeyDown(1)}
+              onMouseEnter={() => {
+                if (typeof menuIndex === "number") {
+                  setMenuIndex(index);
+                }
               }}
-            >
-              <ListItem nested>
-                <List aria-label="Time travel">
-                  <MenuItem {...itemProps}>
-                    Undo {renderShortcut("⌘ Z")}
-                  </MenuItem>
-                  <MenuItem {...itemProps}>
-                    Redo {renderShortcut("⇧ ⌘ Z")}
-                  </MenuItem>
-                </List>
-              </ListItem>
-              <ListDivider />
-              <ListItem nested>
-                <List aria-label="Tool">
-                  <MenuItem {...itemProps}>
-                    Cut {renderShortcut("⌘ X")}
-                  </MenuItem>
-                  <MenuItem {...itemProps}>
-                    Copy {renderShortcut("⌘ Z")}
-                  </MenuItem>
-                  <MenuItem {...itemProps}>
-                    Paste {renderShortcut("⌘ V")}
-                  </MenuItem>
-                </List>
-              </ListItem>
-            </Menu>
-          }
-        >
-          Edit
-        </MenuBarButton>
-      </ListItem>
-      <ListItem>
-        <MenuBarButton
-          open={menuIndex === 2}
-          onOpen={() => {
-            setMenuIndex((prevMenuIndex) =>
-              prevMenuIndex === null ? 2 : null
-            );
-          }}
-          onKeyDown={createHandleButtonKeyDown(2)}
-          onMouseEnter={() => {
-            if (typeof menuIndex === "number") {
-              setMenuIndex(2);
-            }
-          }}
-          ref={(instance) => {
-            menus.current[2] = instance!;
-          }}
-          menu={
-            <Menu
-              size="sm"
-              onClose={() => {
-                menus.current[2]?.focus();
+              ref={(instance) => {
+                menus.current[index] = instance!;
               }}
+              menu={
+                <Menu
+                  size="sm"
+                  onClose={() => {
+                    menus.current[index]?.focus();
+                  }}
+                >
+                  <MenuGroup
+                    handleKeyDown={handleKeyDown}
+                    resetMenuIndex={() => setMenuIndex(null)}
+                    groups={menu.items}
+                  />
+                </Menu>
+              }
             >
-              <MenuItem {...itemProps}>
-                Select All {renderShortcut("⌘ A")}
-              </MenuItem>
-              <MenuItem {...itemProps}>
-                Expand Selection {renderShortcut("⌃ ⇧ ⌘ →")}
-              </MenuItem>
-              <MenuItem {...itemProps}>
-                Shrink Selection {renderShortcut("⌃ ⇧ ⌘ ←")}
-              </MenuItem>
-            </Menu>
-          }
-        >
-          Selection
-        </MenuBarButton>
-      </ListItem>
+              {menu.label}
+            </MenuBarButton>
+          </ListItem>
+        ))}
     </List>
   );
 }

@@ -13,6 +13,7 @@ export interface IDEProps {
 export default ({ openFolder }: IDEProps) => {
   const [openFile, setOpenFile] = useState<string | null>(null);
   const [openFiles, setOpenFiles] = useState<string[]>([]);
+  const [saveFile, setSaveFile] = useState<(() => void) | null>(null);
 
   const openNewFile = useCallback(
     (file: string) => {
@@ -25,13 +26,22 @@ export default ({ openFolder }: IDEProps) => {
 
   return (
     <div className="ide-container">
-      <MenuBar />
+      <MenuBar
+        save={() => {
+          console.log("Saving", saveFile);
+          if (saveFile) saveFile();
+        }}
+      />
       <Splitter direction={SplitDirection.Horizontal} initialSizes={[20, 80]}>
         <Tile>
           <FileExplorer openFolder={openFolder} setOpenFile={openNewFile} />
         </Tile>
         <Splitter direction={SplitDirection.Vertical} initialSizes={[70, 30]}>
-          <Editor openFiles={openFiles} focusedFile={openFile} />
+          <Editor
+            openFiles={openFiles}
+            focusedFile={openFile}
+            setSaveFile={setSaveFile}
+          />
           <Tile title="Terminal">Terminal</Tile>
         </Splitter>
       </Splitter>

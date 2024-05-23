@@ -1,14 +1,15 @@
 import { path } from "@tauri-apps/api";
-import CodeEditor from "../CodeEditor";
+import CodeEditor, { CodeEditorHandles } from "../CodeEditor";
 import "./Editor.css";
 import { Tab, TabList, TabPanel, Tabs } from "@mui/joy";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 export interface EditorProps {
   openFiles: string[];
   focusedFile: string | null;
+  setSaveFile: (save: () => void) => void;
 }
 
-export default ({ openFiles, focusedFile }: EditorProps) => {
+export default ({ openFiles, focusedFile, setSaveFile }: EditorProps) => {
   const [tabs, setTabs] = useState<
     {
       name: string;
@@ -22,6 +23,27 @@ export default ({ openFiles, focusedFile }: EditorProps) => {
   useEffect(() => {
     if (focusedFile !== null) setFocused(openFiles.indexOf(focusedFile));
   }, [focusedFile, openFiles]);
+
+  useEffect(() => {
+    if (focused != undefined) console.log(focused, openFiles[focused]);
+  }, [focused, openFiles]);
+
+  const [focusedEditor, setFocusedEditor] = useState<CodeEditorHandles | null>(
+    null
+  );
+
+  let saveFocusedEditor = useCallback((fE: CodeEditorHandles) => {
+    setFocusedEditor(fE);
+  }, []);
+
+  useEffect(() => {
+    console.log("focusedEditora aa", focusedEditor);
+    if (focusedEditor === null) {
+      setSaveFile(() => {});
+    } else {
+      setSaveFile(() => focusedEditor.saveFile);
+    }
+  }, [focusedEditor]);
 
   useEffect(() => {
     const fetchTabNames = async () => {
@@ -62,7 +84,7 @@ export default ({ openFiles, focusedFile }: EditorProps) => {
         {tabs.map((tab, index) => (
           <TabPanel value={index} key={index} sx={{ padding: 0 }}>
             <CodeEditor
-              focused={index === focused}
+              ref={index === focused ? saveFocusedEditor : undefined}
               key={tab.file}
               file={tab.file}
               setUnsaved={(unsaved: boolean) => {
