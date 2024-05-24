@@ -178,25 +178,23 @@ async fn pipe_command(cmd: &mut Command, window: tauri::Window, cmd_name: &str) 
 
     thread.join().unwrap();
 
-    for line in reader.lines() {
-        match line {
-            Ok(line) => {
-                window
-                    .lock()
-                    .unwrap()
-                    .emit(&name, line)
-                    .expect("failed to send output");
-            }
-            Err(_) => {
-                window
-                    .lock()
-                    .unwrap()
-                    .emit(&name, "command.done.999".to_string())
-                    .expect("failed to send output");
-                return;
-            }
+    reader.lines().for_each(|line| match line {
+        Ok(line) => {
+            window
+                .lock()
+                .unwrap()
+                .emit(&name, line)
+                .expect("failed to send output");
         }
-    }
+        Err(_) => {
+            window
+                .lock()
+                .unwrap()
+                .emit(&name, "command.done.999".to_string())
+                .expect("failed to send output");
+            return;
+        }
+    });
 
     let exit_status = match command.wait() {
         Ok(status) => status,
