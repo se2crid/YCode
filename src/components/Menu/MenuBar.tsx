@@ -4,7 +4,7 @@ import ListItem from "@mui/joy/ListItem";
 import { useCallback, useEffect, useRef, useState } from "react";
 import MenuBarButton from "./MenuBarButton";
 import MenuGroup, { MenuBarData } from "./MenuGroup";
-import { Shortcut, acceleratorPresssed } from "../../Shortcut";
+import { Shortcut, acceleratorPresssed } from "../../utilities/Shortcut";
 
 const bar = [
   {

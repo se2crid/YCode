@@ -20,10 +20,12 @@
     "@mui/material": "^5.15.18",
     "@tauri-apps/api": "^1",
     "ansi-to-html": "^0.7.2",
+    "async-mutex": "^0.5.0",
     "million": "latest",
     "monaco-editor": "^0.48.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-virtuoso": "^4.7.11"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1",

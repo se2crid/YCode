@@ -22,7 +22,6 @@ export interface CodeEditorHandles {
 
 const getLanguage = async (filename: string) => {
   const ext = await path.extname(filename);
-  console.log("ext", ext);
   const extToLang: { [key: string]: string } = {
     js: "javascript",
     ts: "typescript",
