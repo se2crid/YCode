@@ -1,7 +1,7 @@
 import Menu from "@mui/joy/Menu";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import MenuBarButton from "./MenuBarButton";
 import MenuGroup, { MenuBarData } from "./MenuGroup";
 import { Shortcut, acceleratorPresssed } from "../../Shortcut";
@@ -39,9 +39,9 @@ const bar = [
             },
           },
           {
-            name: "Open Workspace...",
+            name: "Open Folder...",
             callback: () => {
-              console.log("Open Workspace!");
+              console.log("Open Folder!");
             },
           },
         ],
@@ -105,6 +105,8 @@ export interface MenuBarProps {
 export default function MenuBar({ callbacks }: MenuBarProps) {
   const menus = useRef<Array<HTMLButtonElement>>([]);
   const [menuIndex, setMenuIndex] = useState<null | number>(null);
+
+  const resetMenuIndex = useCallback(() => setMenuIndex(null), []);
 
   useEffect(() => {
     const items: { shortcut: Shortcut; callback: () => void }[] = [];
@@ -235,7 +237,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
                 >
                   <MenuGroup
                     handleKeyDown={handleKeyDown}
-                    resetMenuIndex={() => setMenuIndex(null)}
+                    resetMenuIndex={resetMenuIndex}
                     groups={menu.items}
                     callbacks={callbacks}
                   />

@@ -43,6 +43,7 @@ export default forwardRef(
           disablePortal: false,
           variant: "soft",
           sx: (theme: Theme) => ({
+            overflowX: "hidden",
             width: 288,
             boxShadow: "0 2px 8px 0px rgba(0 0 0 / 0.38)",
             "--List-padding": "var(--ListDivider-gap)",
