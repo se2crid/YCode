@@ -9,7 +9,7 @@ import {
 import * as monaco from "monaco-editor";
 import "./CodeEditor.css";
 import { useColorScheme } from "@mui/joy/styles";
-import { fs } from "@tauri-apps/api";
+import { fs, path } from "@tauri-apps/api";
 
 export interface CodeEditorProps {
   file: string;
@@ -19,6 +19,27 @@ export interface CodeEditorHandles {
   file: string;
   saveFile: () => void;
 }
+
+const getLanguage = async (filename: string) => {
+  const ext = await path.extname(filename);
+  console.log("ext", ext);
+  const extToLang: { [key: string]: string } = {
+    js: "javascript",
+    ts: "typescript",
+    py: "python",
+    rb: "ruby",
+    go: "go",
+    rs: "rust",
+    swift: "swift",
+    json: "json",
+    // objc priority, this is an ios editor after all (sorry c)
+    m: "objective-c",
+    h: "objective-c",
+    sh: "shell",
+  };
+  return extToLang[ext] || "plaintext";
+};
+
 const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
   ({ file, setUnsaved }, ref) => {
     const [editor, setEditor] =
@@ -64,7 +85,7 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
 
           return monaco.editor.create(monacoEl.current!, {
             value: "",
-            language: "swift",
+            language: "plaintext",
             theme: "vs-" + colorScheme,
             automaticLayout: true,
           });
@@ -92,6 +113,12 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
           .then((text) => {
             editor.setValue(text);
             setOriginalText(text);
+            // set the language
+            getLanguage(file).then((lang) => {
+              let model = editor.getModel();
+              if (model === null) return;
+              monaco.editor.setModelLanguage(model, lang);
+            });
           })
           .catch((error) => {
             let err = error.toString();
