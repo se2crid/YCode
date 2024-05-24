@@ -23,21 +23,22 @@ export default ({ openFolder }: IDEProps) => {
     });
   }, [saveFile]);
 
-  const openNewFile = useCallback(
-    (file: string) => {
-      setOpenFile(file);
-      setOpenFiles((oF) => {
-        console.log(oF, file);
-        if (!oF.includes(file)) return [file, ...oF];
-        return oF;
-      });
-    },
-    [openFiles]
-  );
-
   useEffect(() => {
-    console.log("new save file", saveFile);
-  }, [saveFile]);
+    if (openFiles.length === 0) {
+      setOpenFile(null);
+    }
+    if (!openFiles.includes(openFile!)) {
+      setOpenFile(openFiles[0]);
+    }
+  }, [openFiles]);
+
+  const openNewFile = useCallback((file: string) => {
+    setOpenFile(file);
+    setOpenFiles((oF) => {
+      if (!oF.includes(file)) return [file, ...oF];
+      return oF;
+    });
+  }, []);
 
   return (
     <div className="ide-container">
@@ -51,6 +52,7 @@ export default ({ openFolder }: IDEProps) => {
             openFiles={openFiles}
             focusedFile={openFile}
             setSaveFile={setSaveFile}
+            setOpenFiles={setOpenFiles}
           />
           <Tile title="Terminal">Terminal</Tile>
         </Splitter>

@@ -17,6 +17,7 @@
     "@million/lint": "latest",
     "@mui/icons-material": "^5.15.18",
     "@mui/joy": "^5.0.0-beta.36",
+    "@mui/material": "^5.15.18",
     "@tauri-apps/api": "^1",
     "ansi-to-html": "^0.7.2",
     "million": "latest",

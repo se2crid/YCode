@@ -135,11 +135,6 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
       for (const item of items) {
         if (item.shortcut.pressed(event)) {
           event.preventDefault();
-          console.log(
-            "Shortcut pressed",
-            item.shortcut.toString(),
-            item.callback
-          );
           item.callback();
         }
       }

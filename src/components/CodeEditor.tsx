@@ -26,6 +26,7 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
     const monacoEl = useRef(null);
     const { mode } = useColorScheme();
     const [originalText, setOriginalText] = useState("");
+    const [failedReason, setFailedReason] = useState<string | null>(null);
 
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
@@ -34,7 +35,6 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
     }, [editor]);
 
     const saveFile = useCallback(() => {
-      console.log("Saving file", file, editorRef.current?.getValue());
       if (editorRef.current) {
         const currentText = editorRef.current.getValue();
         setUnsaved(false);
@@ -45,6 +45,7 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       }
     }, [file, setUnsaved]);
 
+    // Exposes parameters to the ref on the parent component
     useImperativeHandle(ref, () => ({
       saveFile,
       file,
@@ -72,23 +73,33 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
         monaco.editor.setTheme("vs-" + colorScheme);
       }
 
-      const resizeObserver = new ResizeObserver(() => {
-        editor?.layout();
-      });
+      if (monacoEl.current) {
+        const resizeObserver = new ResizeObserver(() => {
+          editor?.layout();
+        });
 
-      resizeObserver.observe(monacoEl.current!);
+        resizeObserver.observe(monacoEl.current);
 
-      return () => {
-        resizeObserver.disconnect();
-      };
+        return () => {
+          resizeObserver.disconnect();
+        };
+      }
     }, [monacoEl.current, mode]);
 
     useEffect(() => {
       if (editor) {
-        fs.readTextFile(file).then((text) => {
-          editor.setValue(text);
-          setOriginalText(text);
-        });
+        fs.readTextFile(file)
+          .then((text) => {
+            editor.setValue(text);
+            setOriginalText(text);
+          })
+          .catch((error) => {
+            let err = error.toString();
+            if (err.includes("did not contain valid UTF-8")) {
+              err = "Unable to decode file as UTF-8";
+            }
+            setFailedReason(err);
+          });
       }
     }, [file, editor]);
 
@@ -109,6 +120,9 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       }
     }, [editor, setUnsaved, originalText]);
 
+    if (failedReason !== null) {
+      return <div className={"editor-failed"}>{failedReason}</div>;
+    }
     return <div className={"code-editor"} ref={monacoEl}></div>;
   }
 );

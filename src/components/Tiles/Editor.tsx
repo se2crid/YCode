@@ -1,20 +1,33 @@
 import { path } from "@tauri-apps/api";
 import CodeEditor, { CodeEditorHandles } from "../CodeEditor";
 import "./Editor.css";
-import { Tab, TabList, TabPanel, Tabs } from "@mui/joy";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  IconButton,
+  ListItemDecorator,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+} from "@mui/joy";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import CloseIcon from "@mui/icons-material/Close";
 export interface EditorProps {
   openFiles: string[];
+  setOpenFiles: Dispatch<SetStateAction<string[]>>;
   focusedFile: string | null;
   setSaveFile: (save: () => void) => void;
 }
 
-export default ({ openFiles, focusedFile, setSaveFile }: EditorProps) => {
+export default ({
+  openFiles,
+  focusedFile,
+  setSaveFile,
+  setOpenFiles,
+}: EditorProps) => {
   const [tabs, setTabs] = useState<
     {
       name: string;
       file: string;
-      index: number;
     }[]
   >([]);
   const [unsavedFiles, setUnsavedFiles] = useState<string[]>([]);
@@ -26,7 +39,11 @@ export default ({ openFiles, focusedFile, setSaveFile }: EditorProps) => {
   }, [openFiles]);
 
   useEffect(() => {
-    if (focusedFile !== null) setFocused(openFiles.indexOf(focusedFile));
+    if (focusedFile !== null) {
+      let i = openFiles.indexOf(focusedFile);
+      if (i === -1 || focused === i) return;
+      setFocused(i);
+    }
   }, [focusedFile, openFiles]);
 
   useEffect(() => {
@@ -38,15 +55,13 @@ export default ({ openFiles, focusedFile, setSaveFile }: EditorProps) => {
 
   useEffect(() => {
     const fetchTabNames = async () => {
-      const names = await Promise.all(
-        openFiles.map((file) => path.basename(file))
-      );
       setTabs(
-        names.map((name, index) => ({
-          name,
-          file: openFiles[index],
-          index,
-        }))
+        await Promise.all(
+          openFiles.map(async (file) => ({
+            name: await path.basename(file),
+            file,
+          }))
+        )
       );
     };
 
@@ -66,14 +81,39 @@ export default ({ openFiles, focusedFile, setSaveFile }: EditorProps) => {
       >
         <TabList>
           {tabs.map((tab, index) => (
-            <Tab key={openFiles[index]}>
+            <Tab key={tab.file} value={index} indicatorPlacement="top">
               {tab.name}
-              {unsavedFiles.indexOf(openFiles[index]) != -1 ? " •" : ""}
+              {unsavedFiles.indexOf(tab.file) != -1 ? " •" : ""}
+              <ListItemDecorator>
+                <IconButton
+                  component="span"
+                  size="xs"
+                  sx={{ margin: "0px" }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setTabs((tabs) => tabs.filter((_, i) => i !== index));
+                    setFocused((focused) => {
+                      if (focused === index) return 0;
+                      return focused;
+                    });
+                    setOpenFiles((openFiles) =>
+                      openFiles.filter((file) => file !== tab.file)
+                    );
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </ListItemDecorator>
             </Tab>
           ))}
         </TabList>
         {tabs.map((tab, index) => (
-          <TabPanel value={index} key={index} sx={{ padding: 0 }}>
+          <TabPanel
+            value={index}
+            key={tab.file}
+            sx={{ padding: 0 }}
+            keepMounted
+          >
             <CodeEditor
               ref={(el) => (editors.current[index] = el)}
               key={tab.file}
