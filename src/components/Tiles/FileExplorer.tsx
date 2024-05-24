@@ -13,12 +13,14 @@ interface FileItemProps {
   filePath: string;
   isDirectory: boolean;
   setOpenFile: (file: string) => void;
+  openDefault?: boolean;
 }
 
 const FileItem: React.FC<FileItemProps> = ({
   filePath,
   isDirectory,
   setOpenFile,
+  openDefault = false,
 }) => {
   const handleOpenFile = useCallback(() => {
     setOpenFile(filePath);
@@ -31,7 +33,7 @@ const FileItem: React.FC<FileItemProps> = ({
     }[]
   >([]);
   const [name, setName] = useState("");
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(openDefault);
 
   useEffect(() => {
     (async () => {
@@ -62,7 +64,7 @@ const FileItem: React.FC<FileItemProps> = ({
 
   if (isDirectory) {
     return (
-      <Accordion onChange={handleAccordionChange}>
+      <Accordion onChange={handleAccordionChange} defaultExpanded={openDefault}>
         <AccordionSummary>{name}</AccordionSummary>
         <AccordionDetails>
           <AccordionGroup
@@ -109,6 +111,7 @@ export default ({ openFolder, setOpenFile }: FileExplorerProps) => {
         filePath={openFolder}
         isDirectory={true}
         setOpenFile={setOpenFile}
+        openDefault={true}
       />
     </div>
   );

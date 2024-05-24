@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import Editor from "./components/Tiles/Editor";
 import MenuBar from "./components/Menu/MenuBar";
 import "./IDE.css";
+import RunPanel from "./components/Tiles/Run";
+import Console from "./components/Tiles/Console";
 
 export interface IDEProps {
   openFolder: string;
@@ -54,7 +56,13 @@ export default ({ openFolder }: IDEProps) => {
             setSaveFile={setSaveFile}
             setOpenFiles={setOpenFiles}
           />
-          <Tile title="Terminal">Terminal</Tile>
+          <Splitter
+            direction={SplitDirection.Horizontal}
+            initialSizes={[30, 70]}
+          >
+            <RunPanel openFolder={openFolder} />
+            <Console />
+          </Splitter>
         </Splitter>
       </Splitter>
     </div>
