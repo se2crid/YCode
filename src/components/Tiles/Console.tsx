@@ -15,7 +15,6 @@ export default function Console() {
     if (!listenerAdded.current) {
       listen("build-output", (event) => {
         let line = event.payload as string;
-        console.log(line, line.includes("command.done"));
         if (line.includes("command.done")) {
           setBody(
             (body) =>

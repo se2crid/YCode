@@ -111,10 +111,8 @@ async fn install_theos(handle: tauri::AppHandle, window: tauri::Window) {
     pipe_command(&mut command, window, "install-theos").await;
 }
 
-// Handles taking a command and piping the stdout and exit code to the window
 async fn pipe_command(cmd: &mut Command, window: tauri::Window, cmd_name: &str) {
-    let name = format!("{}-output", cmd_name);
-    let stderr_name = name.clone();
+    let name = &format!("{}-output", cmd_name);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
@@ -122,53 +120,47 @@ async fn pipe_command(cmd: &mut Command, window: tauri::Window, cmd_name: &str) 
         Ok(cmd) => cmd,
         Err(_) => {
             window
-                .emit(&name, "command.done.999".to_string())
+                .emit(name, "command.done.999".to_string())
                 .expect("failed to send output");
             return;
         }
     };
 
-    let output = match command.stdout.take() {
+    let stdout = match command.stdout.take() {
         Some(out) => out,
         None => {
             window
-                .emit(&name, "command.done.999".to_string())
+                .emit(name, "command.done.999".to_string())
                 .expect("failed to send output");
             return;
         }
     };
 
-    let error_output = match command.stderr.take() {
-        Some(out) => out,
+    let stderr = match command.stderr.take() {
+        Some(err) => err,
         None => {
             window
-                .emit(&name, "command.done.999".to_string())
+                .emit(name, "command.done.999".to_string())
                 .expect("failed to send output");
             return;
         }
     };
 
-    let reader = BufReader::new(output);
-    let error_reader = BufReader::new(error_output);
+    let window_clone = window.clone();
+    let name_clone = name.to_string();
 
-    let window = Arc::new(Mutex::new(window));
-
-    let window_clone = Arc::clone(&window);
-    let thread = thread::spawn(move || {
-        for line in error_reader.lines() {
+    let stdout_handle = thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
             match line {
                 Ok(line) => {
                     window_clone
-                        .lock()
-                        .unwrap()
-                        .emit(&stderr_name, line)
+                        .emit(&name_clone, line)
                         .expect("failed to send output");
                 }
                 Err(_) => {
                     window_clone
-                        .lock()
-                        .unwrap()
-                        .emit(&stderr_name, "command.done.999".to_string())
+                        .emit(&name_clone, "command.done.999".to_string())
                         .expect("failed to send output");
                     return;
                 }
@@ -176,33 +168,36 @@ async fn pipe_command(cmd: &mut Command, window: tauri::Window, cmd_name: &str) 
         }
     });
 
-    thread.join().unwrap();
+    let window_clone = window.clone();
+    let name_clone = name.to_string();
 
-    reader.lines().for_each(|line| match line {
-        Ok(line) => {
-            window
-                .lock()
-                .unwrap()
-                .emit(&name, line)
-                .expect("failed to send output");
-        }
-        Err(_) => {
-            window
-                .lock()
-                .unwrap()
-                .emit(&name, "command.done.999".to_string())
-                .expect("failed to send output");
-            return;
+    let stderr_handle = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            match line {
+                Ok(line) => {
+                    window_clone
+                        .emit(&name_clone, line)
+                        .expect("failed to send output");
+                }
+                Err(_) => {
+                    window_clone
+                        .emit(&name_clone, "command.done.999".to_string())
+                        .expect("failed to send output");
+                    return;
+                }
+            }
         }
     });
+
+    stdout_handle.join().expect("stdout thread panicked");
+    stderr_handle.join().expect("stderr thread panicked");
 
     let exit_status = match command.wait() {
         Ok(status) => status,
         Err(_) => {
             window
-                .lock()
-                .unwrap()
-                .emit(&name, "command.done.999".to_string())
+                .emit(name, "command.done.999".to_string())
                 .expect("failed to send output");
             return;
         }
@@ -211,15 +206,23 @@ async fn pipe_command(cmd: &mut Command, window: tauri::Window, cmd_name: &str) 
     let exit_code = exit_status.code().unwrap_or(1);
 
     window
-        .lock()
-        .unwrap()
-        .emit(&name, format!("command.done.{}", exit_code))
+        .emit(name, format!("command.done.{}", exit_code))
         .expect("failed to send output");
 }
 
 fn windows_to_wsl_path(path: &str) -> String {
-    let drive_letter = path[4..].chars().next().unwrap().to_ascii_lowercase();
-    let rest_of_path = path[6..].replace("\\", "/");
+    let (drive_letter_index, rest_of_path_index) = if path.starts_with("\\\\?\\") {
+        (6, 8)
+    } else {
+        (0, 2)
+    };
+
+    let drive_letter = path[drive_letter_index..]
+        .chars()
+        .next()
+        .unwrap()
+        .to_ascii_lowercase();
+    let rest_of_path = path[rest_of_path_index..].replace("\\", "/");
     format!("/mnt/{}/{}", drive_letter, rest_of_path)
 }
 
@@ -234,7 +237,6 @@ async fn build_theos_linux(window: tauri::Window, folder: &str) {
 }
 
 async fn build_theos_windows(window: tauri::Window, folder: &str) {
-    // cd to the folder and run make clean package
     let mut command = Command::new("wsl");
     command.arg("bash").arg("-ic").arg(format!(
         "cd {} && make clean package",
