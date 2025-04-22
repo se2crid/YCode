@@ -8,11 +8,11 @@ import {
   ModalDialog,
   Typography,
 } from "@mui/joy";
-import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import Convert from "ansi-to-html";
 import "./RunCommand.css";
+import { invoke } from "@tauri-apps/api/core";
 
 const convert = new Convert();
 

@@ -1,4 +1,4 @@
-import Splitter, { SplitDirection } from "@devbookhq/splitter";
+import Splitter, { GutterTheme, SplitDirection } from "@devbookhq/splitter";
 import Tile from "./components/Tiles/Tile";
 import FileExplorer from "./components/Tiles/FileExplorer";
 import { useCallback, useEffect, useState } from "react";
@@ -7,6 +7,7 @@ import MenuBar from "./components/Menu/MenuBar";
 import "./IDE.css";
 import RunPanel from "./components/Tiles/Run";
 import Console from "./components/Tiles/Console";
+import { useStore } from "./utilities/StoreContext";
 
 export interface IDEProps {
   openFolder: string;
@@ -16,6 +17,7 @@ export default ({ openFolder }: IDEProps) => {
   const [openFile, setOpenFile] = useState<string | null>(null);
   const [openFiles, setOpenFiles] = useState<string[]>([]);
   const [saveFile, setSaveFile] = useState<(() => void) | null>(null);
+  const [theme] = useStore<"light" | "dark">("theme", "light");
 
   const [callbacks, setCallbacks] = useState<Record<string, () => void>>({});
 
@@ -45,11 +47,19 @@ export default ({ openFolder }: IDEProps) => {
   return (
     <div className="ide-container">
       <MenuBar callbacks={callbacks} />
-      <Splitter direction={SplitDirection.Horizontal} initialSizes={[20, 80]}>
+      <Splitter
+        gutterTheme={theme === "dark" ? GutterTheme.Dark : GutterTheme.Light}
+        direction={SplitDirection.Horizontal}
+        initialSizes={[20, 80]}
+      >
         <Tile>
           <FileExplorer openFolder={openFolder} setOpenFile={openNewFile} />
         </Tile>
-        <Splitter direction={SplitDirection.Vertical} initialSizes={[70, 30]}>
+        <Splitter
+          gutterTheme={theme === "dark" ? GutterTheme.Dark : GutterTheme.Light}
+          direction={SplitDirection.Vertical}
+          initialSizes={[70, 30]}
+        >
           <Editor
             openFiles={openFiles}
             focusedFile={openFile}
@@ -57,6 +67,9 @@ export default ({ openFolder }: IDEProps) => {
             setOpenFiles={setOpenFiles}
           />
           <Splitter
+            gutterTheme={
+              theme === "dark" ? GutterTheme.Dark : GutterTheme.Light
+            }
             direction={SplitDirection.Horizontal}
             initialSizes={[30, 70]}
           >

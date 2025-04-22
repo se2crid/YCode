@@ -4,12 +4,12 @@ import { open } from "@tauri-apps/plugin-shell";
 import "./Onboarding.css";
 import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
 import RunCommand from "./components/RunCommand";
-import {  } from "@tauri-apps/api";
-import * as dialog from "@tauri-apps/plugin-dialog"
+import * as dialog from "@tauri-apps/plugin-dialog";
 
 export interface OnboardingProps {
   openProject: (path: string) => void;
 }
+
 export default ({ openProject }: OnboardingProps) => {
   useMemo(() => {
     invoke("has_theos").then((response) => {
@@ -29,8 +29,6 @@ export default ({ openProject }: OnboardingProps) => {
   const [ready, setReady] = useState(false);
   const [updatingTheos, setUpdatingTheos] = useState(false);
   const [installingTheos, setInstallingTheos] = useState(false);
-
-  // Listen for the update-theos-output event
 
   useEffect(() => {
     if (hasTheos !== null && isWindows !== null && hasWSL !== null) {
@@ -67,8 +65,7 @@ export default ({ openProject }: OnboardingProps) => {
               multiple: false,
             });
             if (path) {
-              if (path instanceof Array) openProject(path[0]);
-              else openProject(path);
+              openProject(path);
             }
           }}
         >
@@ -183,7 +180,7 @@ export default ({ openProject }: OnboardingProps) => {
                 setRun={setUpdatingTheos}
               />
             )}
-            {hasTheos !== null && (
+            {hasTheos !== null && (!isWindows || hasWSL) && (
               <Button
                 sx={{
                   margin: hasTheos ? "10px" : "0",

@@ -4,8 +4,8 @@
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::thread;
-use tauri::{Manager, Emitter};
 use tauri::path::BaseDirectory;
+use tauri::{Emitter, Manager};
 
 #[tauri::command]
 fn is_windows() -> bool {
@@ -71,7 +71,10 @@ async fn update_theos(window: tauri::Window) {
 
 #[tauri::command]
 async fn install_theos_windows(handle: tauri::AppHandle, window: tauri::Window, password: String) {
-    let resource_path = match handle.path().resolve("install_theos.sh", BaseDirectory::Resource) {
+    let resource_path = match handle
+        .path()
+        .resolve("install_theos.sh", BaseDirectory::Resource)
+    {
         Ok(path) => path,
         Err(_) => {
             window
@@ -94,7 +97,10 @@ async fn install_theos_windows(handle: tauri::AppHandle, window: tauri::Window, 
 
 #[tauri::command]
 async fn install_theos(handle: tauri::AppHandle, window: tauri::Window) {
-    let resource_path = match handle.path().resolve("install_theos.sh", BaseDirectory::Resource) {
+    let resource_path = match handle
+        .path()
+        .resolve("install_theos.sh", BaseDirectory::Resource)
+    {
         Ok(path) => path,
         Err(_) => {
             window
@@ -260,6 +266,7 @@ async fn build_theos(window: tauri::Window, folder: String) {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())

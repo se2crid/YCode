@@ -1,5 +1,5 @@
 import { Mutex } from "async-mutex";
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 
 const commandRunnerMutex = new Mutex();

@@ -7,8 +7,8 @@ import {
 } from "@mui/joy";
 import "./FileExplorer.css";
 import { useCallback, useEffect, useState } from "react";
-import {  path } from "@tauri-apps/api";
-import * as fs from "@tauri-apps/plugin-fs"
+import { path } from "@tauri-apps/api";
+import * as fs from "@tauri-apps/plugin-fs";
 
 interface FileItemProps {
   filePath: string;
@@ -42,14 +42,14 @@ const FileItem: React.FC<FileItemProps> = ({
       if (!isDirectory || !expanded) return;
       try {
         const files = await fs.readDir(filePath);
-        setChildren(
-          files.map((file) => {
-            return {
-              path: file.path,
-              isDirectory: file.children !== undefined,
-            };
-          })
-        );
+        const parsedFilePromises = files.map(async (file) => {
+          let pathS = await path.resolve(filePath, file.name);
+          return {
+            path: pathS,
+            isDirectory: file.isDirectory,
+          };
+        });
+        setChildren(await Promise.all(parsedFilePromises));
       } catch (error) {
         console.error("Failed to read file:", filePath, error);
       }
