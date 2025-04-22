@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Tile from "./Tile";
-import { fs, path } from "@tauri-apps/api";
+import {  path } from "@tauri-apps/api";
 import { Button, Typography } from "@mui/joy";
 import { Construction, PhonelinkSetup } from "@mui/icons-material";
 import CommandButton from "../CommandButton";
+import * as fs from "@tauri-apps/plugin-fs"
 
 export interface RunPanelProps {
   openFolder: string;

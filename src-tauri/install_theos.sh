@@ -144,7 +144,7 @@ linux() {
 	fi
 
 	# Check for pkexec (not installed by default on some distros)
-	if ! [[ -x $(command -v pkexec) ]]; then
+	if ! [[ -x $(command -v pkexec) ]] && ! [[ $(uname -r | sed -n 's/.*\( *Microsoft *\).*/\L\1/ip') == microsoft ]]; then
 		error "Please install 'pkexec' before proceeding with the installation."
 		exit 3
 	fi

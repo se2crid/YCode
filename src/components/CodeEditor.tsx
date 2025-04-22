@@ -9,7 +9,8 @@ import {
 import * as monaco from "monaco-editor";
 import "./CodeEditor.css";
 import { useColorScheme } from "@mui/joy/styles";
-import { fs, path } from "@tauri-apps/api";
+import {  path } from "@tauri-apps/api";
+import * as fs from "@tauri-apps/plugin-fs"
 
 export interface CodeEditorProps {
   file: string;

@@ -2,57 +2,39 @@
   "build": {
     "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "bun run build",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist"
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420"
   },
-  "package": {
-    "productName": "YCode",
-    "version": "0.0.0"
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": [
+      "install_theos.sh"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
   },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      },
-      "fs": {
-        "scope": {
-          "allow": ["**"],
-          "requireLiteralLeadingDot": false
-        },
-        "all": true
-      },
-      "dialog": {
-        "open": true,
-        "save": true
-      },
-      "path": {
-        "all": true
-      }
+  "productName": "YCode",
+  "mainBinaryName": "YCode",
+  "version": "0.0.0",
+  "identifier": "me.nabdev.ycode",
+  "plugins": {},
+  "app": {
+    "security": {
+      "csp": null
     },
     "windows": [
       {
         "title": "YCode",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "useHttpsScheme": true
       }
-    ],
-    "security": {
-      "csp": null
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "me.nabdev.ycode",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "resources": ["install_theos.sh"]
-    }
+    ]
   }
 }

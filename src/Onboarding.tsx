@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
-import { open } from "@tauri-apps/api/shell";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-shell";
 import "./Onboarding.css";
 import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
 import RunCommand from "./components/RunCommand";
-import { dialog } from "@tauri-apps/api";
+import {  } from "@tauri-apps/api";
+import * as dialog from "@tauri-apps/plugin-dialog"
 
 export interface OnboardingProps {
   openProject: (path: string) => void;

@@ -3,8 +3,9 @@
 
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex};
 use std::thread;
+use tauri::{Manager, Emitter};
+use tauri::path::BaseDirectory;
 
 #[tauri::command]
 fn is_windows() -> bool {
@@ -37,7 +38,7 @@ async fn has_theos() -> bool {
         // Checks that $THEOS is set in wsl and that the directory contains theos's files
         // For some reason, without cmd /C the command doesn't work properly. I'm guessing its some sort of quoting issue but I couldn't figure it out.
         let output = Command::new("cmd")
-            .args(&["/C", r#"bash -ic 'test -d $THEOS/extras ; echo $?'"#])
+            .args(&["/C", r#"wsl bash -ic 'test -d $THEOS/extras ; echo $?'"#])
             .stdout(Stdio::piped())
             .output()
             .expect("failed to execute process");
@@ -70,9 +71,9 @@ async fn update_theos(window: tauri::Window) {
 
 #[tauri::command]
 async fn install_theos_windows(handle: tauri::AppHandle, window: tauri::Window, password: String) {
-    let resource_path = match handle.path_resolver().resolve_resource("install_theos.sh") {
-        Some(path) => path,
-        None => {
+    let resource_path = match handle.path().resolve("install_theos.sh", BaseDirectory::Resource) {
+        Ok(path) => path,
+        Err(_) => {
             window
                 .emit("install-theos-output", "command.done.999".to_string())
                 .expect("failed to send output");
@@ -93,9 +94,9 @@ async fn install_theos_windows(handle: tauri::AppHandle, window: tauri::Window, 
 
 #[tauri::command]
 async fn install_theos(handle: tauri::AppHandle, window: tauri::Window) {
-    let resource_path = match handle.path_resolver().resolve_resource("install_theos.sh") {
-        Some(path) => path,
-        None => {
+    let resource_path = match handle.path().resolve("install_theos.sh", BaseDirectory::Resource) {
+        Ok(path) => path,
+        Err(_) => {
             window
                 .emit("install-theos-output", "command.done.999".to_string())
                 .expect("failed to send output");
@@ -211,8 +212,9 @@ async fn pipe_command(cmd: &mut Command, window: tauri::Window, cmd_name: &str) 
 }
 
 fn windows_to_wsl_path(path: &str) -> String {
+    println!("Converting Windows path to WSL path: {}", path);
     let (drive_letter_index, rest_of_path_index) = if path.starts_with("\\\\?\\") {
-        (6, 8)
+        (4, 6)
     } else {
         (0, 2)
     };
@@ -223,6 +225,7 @@ fn windows_to_wsl_path(path: &str) -> String {
         .unwrap()
         .to_ascii_lowercase();
     let rest_of_path = path[rest_of_path_index..].replace("\\", "/");
+    println!("Detected drive letter {}", drive_letter);
     format!("/mnt/{}/{}", drive_letter, rest_of_path)
 }
 
@@ -257,6 +260,9 @@ async fn build_theos(window: tauri::Window, folder: String) {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             has_theos,
             update_theos,

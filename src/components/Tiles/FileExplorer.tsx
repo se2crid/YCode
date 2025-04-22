@@ -7,7 +7,8 @@ import {
 } from "@mui/joy";
 import "./FileExplorer.css";
 import { useCallback, useEffect, useState } from "react";
-import { fs, path } from "@tauri-apps/api";
+import {  path } from "@tauri-apps/api";
+import * as fs from "@tauri-apps/plugin-fs"
 
 interface FileItemProps {
   filePath: string;

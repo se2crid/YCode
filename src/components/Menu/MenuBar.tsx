@@ -87,6 +87,17 @@ const bar = [
           },
         ],
       },
+      {
+        label: "Settings",
+        items: [
+          {
+            name: "Preferences...",
+            callback: () => {
+              console.log("Preferences!");
+            },
+          },
+        ],
+      },
     ],
   },
   {
@@ -202,11 +213,13 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
       orientation="horizontal"
       aria-label="YCode menu bar"
       role="menubar"
-      data-joy-color-scheme="dark"
       sx={{
         bgcolor: "background.body",
         borderRadius: "4px",
         width: "100%",
+        borderColor: "divider",
+        borderWidth: "1px",
+        borderStyle: "solid",
       }}
     >
       {bar &&
