@@ -1,30 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
 import "./Onboarding.css";
 import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
 import RunCommand from "../components/RunCommand";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { useNavigate } from "react-router";
+import { useIDE } from "../utilities/IDEContext";
 
 export interface OnboardingProps {}
 
 export default ({}: OnboardingProps) => {
-  useMemo(() => {
-    invoke("has_theos").then((response) => {
-      setHasTheos(response as boolean);
-    });
-    invoke("has_wsl").then((response) => {
-      setHasWSL(response as boolean);
-    });
-    invoke("is_windows").then((response) => {
-      setIsWindows(response as boolean);
-    });
-  }, []);
-
-  const [hasTheos, setHasTheos] = useState<boolean | null>(null);
-  const [isWindows, setIsWindows] = useState<boolean | null>(null);
-  const [hasWSL, setHasWSL] = useState<boolean | null>(null);
+  const { hasTheos, hasWSL, isWindows } = useIDE();
   const [ready, setReady] = useState(false);
   const [updatingTheos, setUpdatingTheos] = useState(false);
   const [installingTheos, setInstallingTheos] = useState(false);

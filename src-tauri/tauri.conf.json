@@ -29,9 +29,23 @@
     "windows": [
       {
         "title": "YCode",
+        "label": "main",
         "width": 800,
         "height": 600,
-        "useHttpsScheme": true
+        "useHttpsScheme": true,
+        "visible": false
+      },
+      {
+        "label": "splashscreen",
+        "url": "/splashscreen",
+        "width": 200,
+        "height": 250,
+        "resizable": false,
+        "decorations": false,
+        "fullscreen": false,
+        "visible": true,
+        "alwaysOnTop": true,
+        "center": true
       }
     ]
   }
