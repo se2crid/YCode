@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { load, Store } from "@tauri-apps/plugin-store";
 import { emit, listen } from "@tauri-apps/api/event";
-import { getAllWindows, getCurrentWindow } from "@tauri-apps/api/window";
+import { getAllWindows } from "@tauri-apps/api/window";
 
 export const StoreContext = createContext<{
   storeValues: { [key: string]: any };

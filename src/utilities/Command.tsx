@@ -1,45 +1,84 @@
 import { Mutex } from "async-mutex";
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useState, createContext, useContext } from "react";
 
 const commandRunnerMutex = new Mutex();
-let setIsRunningCommand: React.Dispatch<React.SetStateAction<boolean>>;
-let setCurrentCommand: React.Dispatch<React.SetStateAction<string | null>>;
 
+// Create a context for sharing command state
+const CommandContext = createContext<{
+  isRunningCommand: boolean;
+  currentCommand: string | null;
+  setIsRunningCommand: React.Dispatch<React.SetStateAction<boolean>>;
+  setCurrentCommand: React.Dispatch<React.SetStateAction<string | null>>;
+} | null>(null);
+
+export function CommandProvider({ children }: { children: React.ReactNode }) {
+  const [isRunningCommand, setIsRunningCommand] = useState(false);
+  const [currentCommand, setCurrentCommand] = useState<string | null>(null);
+
+  return (
+    <CommandContext.Provider
+      value={{
+        isRunningCommand,
+        currentCommand,
+        setIsRunningCommand,
+        setCurrentCommand,
+      }}
+    >
+      {children}
+    </CommandContext.Provider>
+  );
+}
+
+// Modified hook that returns command functions with the context baked in
 export function useCommandRunner() {
-  const [isRunningCommand, _setIsRunningCommand] = useState(false);
-  const [currentCommand, _setCurrentCommand] = useState<string | null>(null);
-  setIsRunningCommand = _setIsRunningCommand; // Save the setter function
-  setCurrentCommand = _setCurrentCommand; // Save the setter function
-
-  return { isRunningCommand, currentCommand };
-}
-
-export async function runCommand(
-  command: string,
-  parameters?: Record<string, unknown>
-) {
-  const release = await commandRunnerMutex.acquire();
-  setIsRunningCommand(true); // Update isRunningCommand
-  setCurrentCommand(command); // Update currentCommand
-  try {
-    await invoke(command, parameters);
-  } finally {
-    release();
-    setIsRunningCommand(false); // Update isRunningCommand
-    setCurrentCommand(null); // Clear currentCommand
+  const context = useContext(CommandContext);
+  if (!context) {
+    throw new Error("useCommandRunner must be used within a CommandProvider");
   }
-}
 
-export async function cancelCommand() {
-  commandRunnerMutex.cancel();
-  const release = await commandRunnerMutex.acquire();
-  setIsRunningCommand(true); // Update isRunningCommand
-  setCurrentCommand(null); // Clear currentCommand
-  try {
-    await invoke("cancel_command");
-  } finally {
-    release();
-    setIsRunningCommand(false); // Update isRunningCommand
-  }
+  const {
+    isRunningCommand,
+    currentCommand,
+    setIsRunningCommand,
+    setCurrentCommand,
+  } = context;
+
+  // Define the run command function inside the hook
+  const runCommand = async (
+    command: string,
+    parameters?: Record<string, unknown>
+  ) => {
+    const release = await commandRunnerMutex.acquire();
+    setIsRunningCommand(true);
+    setCurrentCommand(command);
+    try {
+      await invoke(command, parameters);
+    } finally {
+      release();
+      setIsRunningCommand(false);
+      setCurrentCommand(null);
+    }
+  };
+
+  // Define the cancel command function inside the hook
+  const cancelCommand = async () => {
+    commandRunnerMutex.cancel();
+    const release = await commandRunnerMutex.acquire();
+    setIsRunningCommand(true);
+    setCurrentCommand(null);
+    try {
+      await invoke("cancel_command");
+    } finally {
+      release();
+      setIsRunningCommand(false);
+    }
+  };
+
+  return {
+    isRunningCommand,
+    currentCommand,
+    runCommand,
+    cancelCommand,
+  };
 }

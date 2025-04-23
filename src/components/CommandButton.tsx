@@ -1,9 +1,5 @@
 import { Button } from "@mui/joy";
-import {
-  cancelCommand,
-  runCommand,
-  useCommandRunner,
-} from "../utilities/Command";
+import { useCommandRunner } from "../utilities/Command";
 
 export interface CommandButtonProps {
   command: string;
@@ -22,7 +18,8 @@ export default function CommandButton({
   variant,
   sx = {},
 }: CommandButtonProps) {
-  const { isRunningCommand, currentCommand } = useCommandRunner();
+  const { isRunningCommand, currentCommand, runCommand, cancelCommand } =
+    useCommandRunner();
 
   return (
     <Button

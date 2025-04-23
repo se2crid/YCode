@@ -262,8 +262,18 @@ async fn build_theos(window: tauri::Window, folder: String) {
     }
 }
 
+#[tauri::command]
+async fn deploy_theos(window: tauri::Window, folder: String) {
+    if is_windows() {
+        build_theos_windows(window, &folder).await;
+    } else {
+        build_theos_linux(window, &folder).await;
+    }
+}
+
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -275,7 +285,8 @@ fn main() {
             install_theos_windows,
             is_windows,
             has_wsl,
-            build_theos
+            build_theos,
+            deploy_theos
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -8,6 +8,7 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import { StoreProvider } from "./utilities/StoreContext";
 import { IDEProvider } from "./utilities/IDEContext";
 import Splash from "./pages/Splash";
+import { CommandProvider } from "./utilities/Command";
 
 declare module "@mui/joy/IconButton" {
   interface IconButtonPropsSizeOverrides {
@@ -40,20 +41,22 @@ const App = () => {
       <CssVarsProvider defaultMode="system" theme={theme}>
         <StoreProvider>
           <IDEProvider>
-            <Sheet
-              sx={{
-                width: "100%",
-                height: "100%",
-                overflow: "auto",
-              }}
-            >
-              <Routes>
-                <Route path="*" element={<Onboarding />} />
-                <Route path="/ide/:path" element={<IDE />} />
-                <Route path="/preferences/:page?" element={<Prefs />} />
-                <Route path="/splashscreen" element={<Splash />} />
-              </Routes>
-            </Sheet>
+            <CommandProvider>
+              <Sheet
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  overflow: "auto",
+                }}
+              >
+                <Routes>
+                  <Route path="*" element={<Onboarding />} />
+                  <Route path="/ide/:path" element={<IDE />} />
+                  <Route path="/preferences/:page?" element={<Prefs />} />
+                  <Route path="/splashscreen" element={<Splash />} />
+                </Routes>
+              </Sheet>
+            </CommandProvider>
           </IDEProvider>
         </StoreProvider>
       </CssVarsProvider>

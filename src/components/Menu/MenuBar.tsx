@@ -7,8 +7,9 @@ import MenuBarButton from "./MenuBarButton";
 import MenuGroup, { MenuBarData } from "./MenuGroup";
 import { Shortcut, acceleratorPresssed } from "../../utilities/Shortcut";
 import CommandButton from "../CommandButton";
-import { Construction } from "@mui/icons-material";
+import { Construction, PhonelinkSetup } from "@mui/icons-material";
 import { useParams } from "react-router-dom";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 const bar = [
   {
@@ -126,11 +127,36 @@ const bar = [
   },
   {
     label: "View",
-    items: [],
+    items: [
+      {
+        label: "Debug",
+        items: [
+          {
+            name: "Reload Window",
+            callback: async () => {
+              window.location.reload();
+            },
+            shortcut: "Ctrl+R",
+          },
+        ],
+      },
+    ],
   },
   {
     label: "Help",
-    items: [],
+    items: [
+      {
+        label: "About YCode",
+        items: [
+          {
+            name: "View Github",
+            callback: () => {
+              openUrl("https://github.com/nab138/YCode");
+            },
+          },
+        ],
+      },
+    ],
   },
 ] as MenuBarData;
 
@@ -291,7 +317,14 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
         command="build_theos"
         icon={<Construction />}
         parameters={{ folder: path }}
-        sx={{ marginLeft: "auto" }}
+        sx={{ marginLeft: "auto", marginRight: 0 }}
+      />
+      <CommandButton
+        variant="plain"
+        command="deploy_theos"
+        icon={<PhonelinkSetup />}
+        parameters={{ folder: path }}
+        sx={{ marginLeft: 0 }}
       />
     </List>
   );
