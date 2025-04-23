@@ -8,8 +8,10 @@ import {
 export interface CommandButtonProps {
   command: string;
   parameters?: Record<string, unknown>;
-  label: string;
+  label?: string;
   icon: React.ReactNode;
+  variant?: "plain" | "outlined" | "soft" | "solid";
+  sx?: React.CSSProperties;
 }
 
 export default function CommandButton({
@@ -17,16 +19,23 @@ export default function CommandButton({
   parameters,
   label,
   icon,
+  variant,
+  sx = {},
 }: CommandButtonProps) {
   const { isRunningCommand, currentCommand } = useCommandRunner();
 
   return (
     <Button
       disabled={isRunningCommand && currentCommand !== command}
-      startDecorator={icon}
+      startDecorator={label == "" || label == undefined ? undefined : icon}
       loading={isRunningCommand && currentCommand === command}
+      variant={variant}
       size="md"
-      sx={{ marginRight: "10px" }}
+      sx={{
+        marginRight: "var(--padding-md)",
+        padding: "0 var(--padding-md)",
+        ...sx,
+      }}
       onClick={() => {
         if (isRunningCommand) {
           if (currentCommand === command) {
@@ -37,7 +46,7 @@ export default function CommandButton({
         runCommand(command, parameters);
       }}
     >
-      {label}
+      {label == "" || label == undefined ? icon : label}
     </Button>
   );
 }

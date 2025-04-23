@@ -3,14 +3,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import "./Onboarding.css";
 import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
-import RunCommand from "./components/RunCommand";
+import RunCommand from "../components/RunCommand";
 import * as dialog from "@tauri-apps/plugin-dialog";
+import { useNavigate } from "react-router";
 
-export interface OnboardingProps {
-  openProject: (path: string) => void;
-}
+export interface OnboardingProps {}
 
-export default ({ openProject }: OnboardingProps) => {
+export default ({}: OnboardingProps) => {
   useMemo(() => {
     invoke("has_theos").then((response) => {
       setHasTheos(response as boolean);
@@ -29,6 +28,7 @@ export default ({ openProject }: OnboardingProps) => {
   const [ready, setReady] = useState(false);
   const [updatingTheos, setUpdatingTheos] = useState(false);
   const [installingTheos, setInstallingTheos] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (hasTheos !== null && isWindows !== null && hasWSL !== null) {
@@ -65,7 +65,7 @@ export default ({ openProject }: OnboardingProps) => {
               multiple: false,
             });
             if (path) {
-              openProject(path);
+              navigate("/ide/" + encodeURIComponent(path));
             }
           }}
         >

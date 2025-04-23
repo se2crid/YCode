@@ -1,9 +1,11 @@
 import { CssVarsProvider, extendTheme } from "@mui/joy/styles";
 import { Sheet } from "@mui/joy";
 import "@fontsource/inter";
-import Onboarding from "./Onboarding";
-import { useCallback, useState } from "react";
-import IDE from "./IDE";
+import Onboarding from "./pages/Onboarding";
+import IDE from "./pages/IDE";
+import Prefs from "./pages/Prefs";
+import { BrowserRouter, Route, Routes } from "react-router";
+import { StoreProvider } from "./utilities/StoreContext";
 
 declare module "@mui/joy/IconButton" {
   interface IconButtonPropsSizeOverrides {
@@ -31,27 +33,26 @@ const theme = extendTheme({
 });
 
 const App = () => {
-  const [openFolder, setOpenFolder] = useState<string | null>(null);
-  const [page, setPage] = useState("onboarding");
-
-  const openProject = useCallback((path: string) => {
-    setOpenFolder(path);
-    setPage("ide");
-  }, []);
-
   return (
-    <CssVarsProvider defaultMode="system" theme={theme}>
-      <Sheet
-        sx={{
-          width: "100%",
-          height: "100%",
-          overflow: "auto",
-        }}
-      >
-        {page === "onboarding" && <Onboarding openProject={openProject} />}
-        {page === "ide" && <IDE openFolder={openFolder!} />}
-      </Sheet>
-    </CssVarsProvider>
+    <BrowserRouter>
+      <CssVarsProvider defaultMode="system" theme={theme}>
+        <StoreProvider>
+          <Sheet
+            sx={{
+              width: "100%",
+              height: "100%",
+              overflow: "auto",
+            }}
+          >
+            <Routes>
+              <Route path="*" element={<Onboarding />} />
+              <Route path="/ide/:path" element={<IDE />} />
+              <Route path="/preferences/:page?" element={<Prefs />} />
+            </Routes>
+          </Sheet>
+        </StoreProvider>
+      </CssVarsProvider>
+    </BrowserRouter>
   );
 };
 

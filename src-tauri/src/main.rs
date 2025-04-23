@@ -218,7 +218,6 @@ async fn pipe_command(cmd: &mut Command, window: tauri::Window, cmd_name: &str) 
 }
 
 fn windows_to_wsl_path(path: &str) -> String {
-    println!("Converting Windows path to WSL path: {}", path);
     let (drive_letter_index, rest_of_path_index) = if path.starts_with("\\\\?\\") {
         (4, 6)
     } else {
@@ -231,7 +230,6 @@ fn windows_to_wsl_path(path: &str) -> String {
         .unwrap()
         .to_ascii_lowercase();
     let rest_of_path = path[rest_of_path_index..].replace("\\", "/");
-    println!("Detected drive letter {}", drive_letter);
     format!("/mnt/{}/{}", drive_letter, rest_of_path)
 }
 

@@ -9,8 +9,8 @@ import {
 import * as monaco from "monaco-editor";
 import "./CodeEditor.css";
 import { useColorScheme } from "@mui/joy/styles";
-import {  path } from "@tauri-apps/api";
-import * as fs from "@tauri-apps/plugin-fs"
+import { path } from "@tauri-apps/api";
+import * as fs from "@tauri-apps/plugin-fs";
 
 export interface CodeEditorProps {
   file: string;
@@ -22,6 +22,9 @@ export interface CodeEditorHandles {
 }
 
 const getLanguage = async (filename: string) => {
+  if (filename === "Makefile") {
+    return "make";
+  }
   const ext = await path.extname(filename);
   const extToLang: { [key: string]: string } = {
     js: "javascript",
@@ -34,7 +37,10 @@ const getLanguage = async (filename: string) => {
     json: "json",
     // objc priority, this is an ios editor after all (sorry c)
     m: "objective-c",
+    mi: "objective-c",
     h: "objective-c",
+    xm: "objective-c",
+    xmi: "objective-c",
     sh: "shell",
   };
   return extToLang[ext] || "plaintext";
@@ -59,7 +65,7 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       if (editorRef.current) {
         const currentText = editorRef.current.getValue();
         setUnsaved(false);
-        fs.writeFile({ path: file, contents: currentText }).then(() => {
+        fs.writeTextFile(file, currentText).then(() => {
           setOriginalText(currentText);
           setUnsaved(false);
         });

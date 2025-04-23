@@ -1,23 +1,25 @@
 import Splitter, { GutterTheme, SplitDirection } from "@devbookhq/splitter";
-import Tile from "./components/Tiles/Tile";
-import FileExplorer from "./components/Tiles/FileExplorer";
+import Tile from "../components/Tiles/Tile";
+import FileExplorer from "../components/Tiles/FileExplorer";
 import { useCallback, useEffect, useState } from "react";
-import Editor from "./components/Tiles/Editor";
-import MenuBar from "./components/Menu/MenuBar";
+import Editor from "../components/Tiles/Editor";
+import MenuBar from "../components/Menu/MenuBar";
 import "./IDE.css";
-import RunPanel from "./components/Tiles/Run";
-import Console from "./components/Tiles/Console";
-import { useStore } from "./utilities/StoreContext";
+import Console from "../components/Tiles/Console";
+import { useStore } from "../utilities/StoreContext";
+import { useParams } from "react-router";
 
-export interface IDEProps {
-  openFolder: string;
-}
+export interface IDEProps {}
 
-export default ({ openFolder }: IDEProps) => {
+export default () => {
   const [openFile, setOpenFile] = useState<string | null>(null);
   const [openFiles, setOpenFiles] = useState<string[]>([]);
   const [saveFile, setSaveFile] = useState<(() => void) | null>(null);
-  const [theme] = useStore<"light" | "dark">("theme", "light");
+  const [theme] = useStore<"light" | "dark">("appearance/theme", "light");
+  const { path } = useParams<"path">();
+  if (!path) {
+    throw new Error("Path parameter is required in IDE component");
+  }
 
   const [callbacks, setCallbacks] = useState<Record<string, () => void>>({});
 
@@ -53,7 +55,7 @@ export default ({ openFolder }: IDEProps) => {
         initialSizes={[20, 80]}
       >
         <Tile>
-          <FileExplorer openFolder={openFolder} setOpenFile={openNewFile} />
+          <FileExplorer openFolder={path} setOpenFile={openNewFile} />
         </Tile>
         <Splitter
           gutterTheme={theme === "dark" ? GutterTheme.Dark : GutterTheme.Light}
@@ -66,16 +68,7 @@ export default ({ openFolder }: IDEProps) => {
             setSaveFile={setSaveFile}
             setOpenFiles={setOpenFiles}
           />
-          <Splitter
-            gutterTheme={
-              theme === "dark" ? GutterTheme.Dark : GutterTheme.Light
-            }
-            direction={SplitDirection.Horizontal}
-            initialSizes={[30, 70]}
-          >
-            <RunPanel openFolder={openFolder} />
-            <Console />
-          </Splitter>
+          <Console />
         </Splitter>
       </Splitter>
     </div>

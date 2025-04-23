@@ -1,3 +1,4 @@
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import Menu from "@mui/joy/Menu";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
@@ -5,6 +6,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import MenuBarButton from "./MenuBarButton";
 import MenuGroup, { MenuBarData } from "./MenuGroup";
 import { Shortcut, acceleratorPresssed } from "../../utilities/Shortcut";
+import CommandButton from "../CommandButton";
+import { Construction } from "@mui/icons-material";
+import { useParams } from "react-router-dom";
 
 const bar = [
   {
@@ -92,8 +96,28 @@ const bar = [
         items: [
           {
             name: "Preferences...",
-            callback: () => {
-              console.log("Preferences!");
+            callback: async () => {
+              let prefsWindow = await WebviewWindow.getByLabel("prefs");
+              if (prefsWindow) {
+                prefsWindow.show();
+                prefsWindow.center();
+                prefsWindow.setFocus();
+                return;
+              }
+
+              const appWindow = new WebviewWindow("prefs", {
+                title: "Preferences",
+                resizable: false,
+                width: 600,
+                height: 400,
+                url: "/preferences",
+              });
+              appWindow.once("tauri://created", function () {
+                appWindow.center();
+              });
+              appWindow.once("tauri://error", function (e) {
+                console.error("Error creating window:", e);
+              });
             },
           },
         ],
@@ -118,6 +142,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
   const [menuIndex, setMenuIndex] = useState<null | number>(null);
 
   const resetMenuIndex = useCallback(() => setMenuIndex(null), []);
+  const { path } = useParams<"path">();
 
   useEffect(() => {
     const items: { shortcut: Shortcut; callback: () => void }[] = [];
@@ -261,6 +286,13 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
             </MenuBarButton>
           </ListItem>
         ))}
+      <CommandButton
+        variant="plain"
+        command="build_theos"
+        icon={<Construction />}
+        parameters={{ folder: path }}
+        sx={{ marginLeft: "auto" }}
+      />
     </List>
   );
 }

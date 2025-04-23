@@ -1,5 +1,5 @@
 .onboarding {
-  padding: 10px 15px;
+  padding: var(--padding-md) var(--padding-lg);
 }
 
 .onboarding h1,
