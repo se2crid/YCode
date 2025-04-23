@@ -1,6 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection};
+use idevice::{lockdown::LockdownClient, provider::IdeviceProvider, IdeviceService};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -271,6 +273,58 @@ async fn deploy_theos(window: tauri::Window, folder: String) {
     }
 }
 
+#[tauri::command]
+async fn refresh_idevice(window: tauri::Window) {
+    let mut usbmuxd = UsbmuxdConnection::default()
+        .await
+        .expect("Unable to connect to usbmxud");
+    let devs = usbmuxd.get_devices().await.unwrap();
+    if devs.is_empty() {
+        eprintln!("No devices connected!");
+        window.emit("idevices", "").expect("Failed to send devices");
+        return;
+    }
+
+    window
+        .emit(
+            "idevices",
+            devs.iter()
+                .map(|d| d.device_id.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+        )
+        .expect("Failed to send devices");
+
+    // return an array of device names
+    // let device_names: Vec<String> = devs.iter().map(|d| d.get_name().unwrap_or("Unknown".to_string())).collect();
+    // return device_names.join(", ");
+    // let provider = devs[0].to_provider(UsbmuxdAddr::from_env_var().unwrap(), 0, "y-code");
+
+    // // ``connect`` takes an object with the provider trait
+    // let mut lockdown_client = match LockdownClient::connect(&provider).await {
+    //     Ok(l) => l,
+    //     Err(e) => {
+    //         eprintln!("Unable to connect to lockdown: {e:?}");
+    //         return;
+    //     }
+    // };
+
+    // println!("{:?}", lockdown_client.get_value("ProductVersion").await);
+    // println!(
+    //     "{:?}",
+    //     lockdown_client
+    //         .start_session(
+    //             &provider
+    //                 .get_pairing_file()
+    //                 .await
+    //                 .expect("failed to get pairing file")
+    //         )
+    //         .await
+    // );
+    // println!("{:?}", lockdown_client.idevice.get_type().await.unwrap());
+    // println!("{:#?}", lockdown_client.get_all_values().await);
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -286,7 +340,8 @@ fn main() {
             is_windows,
             has_wsl,
             build_theos,
-            deploy_theos
+            deploy_theos,
+            refresh_idevice
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

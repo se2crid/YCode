@@ -7,9 +7,11 @@ import MenuBarButton from "./MenuBarButton";
 import MenuGroup, { MenuBarData } from "./MenuGroup";
 import { Shortcut, acceleratorPresssed } from "../../utilities/Shortcut";
 import CommandButton from "../CommandButton";
-import { Construction, PhonelinkSetup } from "@mui/icons-material";
+import { Construction, PhonelinkSetup, Refresh } from "@mui/icons-material";
 import { useParams } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { Divider, Option, Select } from "@mui/joy";
+import { useIDE } from "../../utilities/IDEContext";
 
 const bar = [
   {
@@ -169,6 +171,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
 
   const resetMenuIndex = useCallback(() => setMenuIndex(null), []);
   const { path } = useParams<"path">();
+  const { devices } = useIDE();
 
   useEffect(() => {
     const items: { shortcut: Shortcut; callback: () => void }[] = [];
@@ -258,6 +261,16 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
       }
     };
 
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (devices.length > 0) {
+      setSelectedDevice(devices[0]);
+    } else {
+      setSelectedDevice(null);
+    }
+  }, [devices]);
+
   return (
     <List
       size="sm"
@@ -266,11 +279,10 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
       role="menubar"
       sx={{
         bgcolor: "background.body",
-        borderRadius: "4px",
         width: "100%",
         borderColor: "divider",
-        borderWidth: "1px",
-        borderStyle: "solid",
+        borderBottomWidth: "1px",
+        borderBottomStyle: "solid",
       }}
     >
       {bar &&
@@ -319,13 +331,42 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
         parameters={{ folder: path }}
         sx={{ marginLeft: "auto", marginRight: 0 }}
       />
-      <CommandButton
-        variant="plain"
-        command="deploy_theos"
-        icon={<PhonelinkSetup />}
-        parameters={{ folder: path }}
-        sx={{ marginLeft: 0 }}
-      />
+      <Divider orientation="vertical" />
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <CommandButton
+          variant="plain"
+          command="refresh_idevice"
+          icon={<Refresh />}
+          parameters={{}}
+          sx={{ marginLeft: 0, marginRight: 0 }}
+        />
+        <Select
+          size="sm"
+          value={selectedDevice ?? "none"}
+          onChange={(_, value) => {
+            setSelectedDevice(value as string);
+          }}
+          placeholder="Select Device..."
+        >
+          {devices.length < 1 && (
+            <Option disabled value="none">
+              No devices connected
+            </Option>
+          )}
+          {devices.map((device, index) => (
+            <Option key={index} value={device}>
+              {device}
+            </Option>
+          ))}
+        </Select>
+        <CommandButton
+          variant="plain"
+          command="deploy_theos"
+          icon={<PhonelinkSetup />}
+          parameters={{ folder: path }}
+          sx={{ marginRight: 0 }}
+        />
+      </div>
     </List>
   );
 }

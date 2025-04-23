@@ -1,13 +1,21 @@
 // create a context to store a few state values about the system that are checked at startup
-import React, { createContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Window } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 
 export interface IDEContextType {
   initialized: boolean;
   isWindows: boolean;
   hasWSL: boolean;
   hasTheos: boolean;
+  devices: string[];
 }
 
 export const IDEContext = createContext<IDEContextType | null>(null);
@@ -19,6 +27,7 @@ export const IDEProvider: React.FC<{
   const [hasWSL, setHasWSL] = useState<boolean>(false);
   const [hasTheos, setHasTheos] = useState<boolean>(false);
   const [initialized, setInitialized] = useState(false);
+  const [devices, setDevices] = useState<string[]>([]);
 
   useEffect(() => {
     let initPromises: Promise<void>[] = [];
@@ -65,14 +74,34 @@ export const IDEProvider: React.FC<{
     }
   }, [initialized]);
 
+  const listenerAdded = useRef(false);
+  const unlisten = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (!listenerAdded.current) {
+      (async () => {
+        const unlistenFn = await listen("idevices", (event) => {
+          let devices = event.payload as string;
+          setDevices(devices.split(",").filter((d) => d.trim() !== ""));
+        });
+        unlisten.current = unlistenFn;
+      })();
+      listenerAdded.current = true;
+    }
+    return () => {
+      unlisten.current();
+    };
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       isWindows,
       hasWSL,
       hasTheos,
       initialized,
+      devices,
     }),
-    [isWindows, hasWSL, hasTheos, initialized]
+    [isWindows, hasWSL, hasTheos, initialized, devices]
   );
 
   return (
