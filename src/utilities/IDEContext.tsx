@@ -1,6 +1,7 @@
 // create a context to store a few state values about the system that are checked at startup
 import React, {
   createContext,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -9,14 +10,23 @@ import React, {
 import { invoke } from "@tauri-apps/api/core";
 import { Window } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
+import * as dialog from "@tauri-apps/plugin-dialog";
+import { useToast } from "react-toast-plus";
+import { useNavigate } from "react-router-dom";
 
 export interface IDEContextType {
   initialized: boolean;
   isWindows: boolean;
   hasWSL: boolean;
   hasTheos: boolean;
-  devices: string[];
+  devices: DeviceInfo[];
+  openFolderDialog: () => void;
 }
+
+export type DeviceInfo = {
+  name: string;
+  id: number;
+};
 
 export const IDEContext = createContext<IDEContextType | null>(null);
 
@@ -27,7 +37,7 @@ export const IDEProvider: React.FC<{
   const [hasWSL, setHasWSL] = useState<boolean>(false);
   const [hasTheos, setHasTheos] = useState<boolean>(false);
   const [initialized, setInitialized] = useState(false);
-  const [devices, setDevices] = useState<string[]>([]);
+  const [devices, setDevices] = useState<DeviceInfo[]>([]);
 
   useEffect(() => {
     let initPromises: Promise<void>[] = [];
@@ -77,12 +87,18 @@ export const IDEProvider: React.FC<{
   const listenerAdded = useRef(false);
   const unlisten = useRef<() => void>(() => {});
 
+  const { addToast } = useToast();
+
   useEffect(() => {
     if (!listenerAdded.current) {
       (async () => {
         const unlistenFn = await listen("idevices", (event) => {
-          let devices = event.payload as string;
-          setDevices(devices.split(",").filter((d) => d.trim() !== ""));
+          let devices = event.payload as DeviceInfo[];
+          console.log("Received devices:", devices);
+          setDevices(devices);
+          if (devices.length === 0) {
+            addToast.info("No devices found");
+          }
         });
         unlisten.current = unlistenFn;
       })();
@@ -93,6 +109,18 @@ export const IDEProvider: React.FC<{
     };
   }, []);
 
+  const navigate = useNavigate();
+
+  const openFolderDialog = useCallback(async () => {
+    const path = await dialog.open({
+      directory: true,
+      multiple: false,
+    });
+    if (path) {
+      navigate("/ide/" + encodeURIComponent(path));
+    }
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       isWindows,
@@ -100,6 +128,7 @@ export const IDEProvider: React.FC<{
       hasTheos,
       initialized,
       devices,
+      openFolderDialog,
     }),
     [isWindows, hasWSL, hasTheos, initialized, devices]
   );

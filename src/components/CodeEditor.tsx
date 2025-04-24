@@ -78,41 +78,63 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       file,
     }));
 
+    // Create editor only once when monacoEl is available
     useEffect(() => {
+      if (monacoEl.current && !editor) {
+        let colorScheme = mode;
+        if (colorScheme === "system") {
+          colorScheme = window.matchMedia("(prefers-color-scheme: dark)")
+            .matches
+            ? "dark"
+            : "light";
+        }
+
+        const newEditor = monaco.editor.create(monacoEl.current, {
+          value: "",
+          language: "plaintext",
+          theme: "vs-" + colorScheme,
+          automaticLayout: true,
+        });
+
+        setEditor(newEditor);
+
+        // Proper cleanup when component unmounts
+        return () => {
+          newEditor.dispose();
+        };
+      }
+    }, []); // Empty dependency array - runs once on mount
+
+    // Handle theme changes
+    useEffect(() => {
+      if (!editor) return;
+
       let colorScheme = mode;
       if (colorScheme === "system") {
         colorScheme = window.matchMedia("(prefers-color-scheme: dark)").matches
           ? "dark"
           : "light";
       }
-      if (!editor) {
-        setEditor((editor) => {
-          if (editor) return editor;
 
-          return monaco.editor.create(monacoEl.current!, {
-            value: "",
-            language: "plaintext",
-            theme: "vs-" + colorScheme,
-            automaticLayout: true,
-          });
-        });
-      } else {
-        monaco.editor.setTheme("vs-" + colorScheme);
-      }
+      monaco.editor.setTheme("vs-" + colorScheme);
+    }, [mode, editor]);
 
-      if (monacoEl.current) {
-        const resizeObserver = new ResizeObserver(() => {
-          editor?.layout();
-        });
+    // Handle resize
+    useEffect(() => {
+      if (!monacoEl.current || !editor) return;
 
-        resizeObserver.observe(monacoEl.current);
+      const resizeObserver = new ResizeObserver(() => {
+        editor.layout();
+      });
 
-        return () => {
-          resizeObserver.disconnect();
-        };
-      }
-    }, [monacoEl.current, mode]);
+      resizeObserver.observe(monacoEl.current);
 
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }, [editor]);
+
+    // Load file content
     useEffect(() => {
       if (editor) {
         fs.readTextFile(file)

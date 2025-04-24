@@ -2,12 +2,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection};
-use idevice::{lockdown::LockdownClient, provider::IdeviceProvider, IdeviceService};
+use idevice::{lockdown::LockdownClient, IdeviceService};
+use serde::Serialize;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::thread;
 use tauri::path::BaseDirectory;
 use tauri::{Emitter, Manager};
+
+#[derive(Serialize, Clone)]
+struct DeviceInfo {
+    name: String,
+    id: u32,
+}
 
 #[tauri::command]
 fn is_windows() -> bool {
@@ -280,49 +287,50 @@ async fn refresh_idevice(window: tauri::Window) {
         .expect("Unable to connect to usbmxud");
     let devs = usbmuxd.get_devices().await.unwrap();
     if devs.is_empty() {
-        eprintln!("No devices connected!");
-        window.emit("idevices", "").expect("Failed to send devices");
+        window
+            .emit("idevices", Vec::<DeviceInfo>::new())
+            .expect("Failed to send devices");
         return;
     }
 
+    let device_info_futures: Vec<_> = devs
+        .iter()
+        .map(|d| async move {
+            // Use current device (d) instead of always using devs[0]
+            let provider = d.to_provider(UsbmuxdAddr::from_env_var().unwrap(), 0, "y-code");
+            let device_uid = d.device_id;
+
+            let mut lockdown_client = match LockdownClient::connect(&provider).await {
+                Ok(l) => l,
+                Err(e) => {
+                    eprintln!("Unable to connect to lockdown: {e:?}");
+                    return DeviceInfo {
+                        name: String::from("Unknown Device"),
+                        id: device_uid,
+                    };
+                }
+            };
+
+            let device_name = lockdown_client
+                .get_value("DeviceName")
+                .await
+                .expect("Failed to get device name")
+                .as_string()
+                .expect("Failed to convert device name to string")
+                .to_string();
+
+            DeviceInfo {
+                name: device_name,
+                id: device_uid,
+            }
+        })
+        .collect();
+
+    let device_infos = futures::future::join_all(device_info_futures).await;
+
     window
-        .emit(
-            "idevices",
-            devs.iter()
-                .map(|d| d.device_id.to_string())
-                .collect::<Vec<String>>()
-                .join(", "),
-        )
+        .emit("idevices", device_infos)
         .expect("Failed to send devices");
-
-    // return an array of device names
-    // let device_names: Vec<String> = devs.iter().map(|d| d.get_name().unwrap_or("Unknown".to_string())).collect();
-    // return device_names.join(", ");
-    // let provider = devs[0].to_provider(UsbmuxdAddr::from_env_var().unwrap(), 0, "y-code");
-
-    // // ``connect`` takes an object with the provider trait
-    // let mut lockdown_client = match LockdownClient::connect(&provider).await {
-    //     Ok(l) => l,
-    //     Err(e) => {
-    //         eprintln!("Unable to connect to lockdown: {e:?}");
-    //         return;
-    //     }
-    // };
-
-    // println!("{:?}", lockdown_client.get_value("ProductVersion").await);
-    // println!(
-    //     "{:?}",
-    //     lockdown_client
-    //         .start_session(
-    //             &provider
-    //                 .get_pairing_file()
-    //                 .await
-    //                 .expect("failed to get pairing file")
-    //         )
-    //         .await
-    // );
-    // println!("{:?}", lockdown_client.idevice.get_type().await.unwrap());
-    // println!("{:#?}", lockdown_client.get_all_values().await);
 }
 
 fn main() {

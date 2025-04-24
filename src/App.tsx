@@ -4,11 +4,12 @@ import "@fontsource/inter";
 import Onboarding from "./pages/Onboarding";
 import IDE from "./pages/IDE";
 import Prefs from "./pages/Prefs";
-import { BrowserRouter, Route, Routes } from "react-router";
-import { StoreProvider } from "./utilities/StoreContext";
+import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router";
+import { StoreProvider, useStore } from "./utilities/StoreContext";
 import { IDEProvider } from "./utilities/IDEContext";
 import Splash from "./pages/Splash";
 import { CommandProvider } from "./utilities/Command";
+import { ToastProvider } from "react-toast-plus";
 
 declare module "@mui/joy/IconButton" {
   interface IconButtonPropsSizeOverrides {
@@ -35,29 +36,50 @@ const theme = extendTheme({
   },
 });
 
+// Layout with IDE-related providers
+const IDELayout = () => {
+  const [appTheme] = useStore("appearance/theme", "light");
+  return (
+    <ToastProvider
+      toastOptions={{ placement: "bottom-right" }}
+      toastStyles={
+        appTheme == "dark"
+          ? { toastBgColor: "#333", toastTextColor: "#fff" }
+          : {}
+      }
+    >
+      <IDEProvider>
+        <CommandProvider>
+          <Outlet />
+        </CommandProvider>
+      </IDEProvider>
+    </ToastProvider>
+  );
+};
+
 const App = () => {
   return (
     <BrowserRouter>
       <CssVarsProvider defaultMode="system" theme={theme}>
         <StoreProvider>
-          <IDEProvider>
-            <CommandProvider>
-              <Sheet
-                sx={{
-                  width: "100%",
-                  height: "100%",
-                  overflow: "auto",
-                }}
-              >
-                <Routes>
-                  <Route path="*" element={<Onboarding />} />
-                  <Route path="/ide/:path" element={<IDE />} />
-                  <Route path="/preferences/:page?" element={<Prefs />} />
-                  <Route path="/splashscreen" element={<Splash />} />
-                </Routes>
-              </Sheet>
-            </CommandProvider>
-          </IDEProvider>
+          <Sheet
+            sx={{
+              width: "100%",
+              height: "100%",
+              overflow: "auto",
+            }}
+          >
+            <Routes>
+              <Route element={<IDELayout />}>
+                <Route index element={<Onboarding />} />
+                <Route path="/ide/:path" element={<IDE />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+
+              <Route path="/preferences/:page?" element={<Prefs />} />
+              <Route path="/splashscreen" element={<Splash />} />
+            </Routes>
+          </Sheet>
         </StoreProvider>
       </CssVarsProvider>
     </BrowserRouter>

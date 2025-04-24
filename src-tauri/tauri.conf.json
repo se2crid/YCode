@@ -36,6 +36,7 @@
         "visible": false
       },
       {
+        "title": "YCode (Loading)",
         "label": "splashscreen",
         "url": "/splashscreen",
         "width": 200,
@@ -44,8 +45,8 @@
         "decorations": false,
         "fullscreen": false,
         "visible": true,
-        "alwaysOnTop": true,
-        "center": true
+        "center": true,
+        "focus": true
       }
     ]
   }

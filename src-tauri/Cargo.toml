@@ -20,6 +20,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
 idevice = { version = "0.1.29", features = ["full"] }
+futures = "0.3.31"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

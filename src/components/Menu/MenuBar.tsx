@@ -11,7 +11,7 @@ import { Construction, PhonelinkSetup, Refresh } from "@mui/icons-material";
 import { useParams } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Divider, Option, Select } from "@mui/joy";
-import { useIDE } from "../../utilities/IDEContext";
+import { DeviceInfo, useIDE } from "../../utilities/IDEContext";
 
 const bar = [
   {
@@ -47,9 +47,7 @@ const bar = [
           },
           {
             name: "Open Folder...",
-            callback: () => {
-              console.log("Open Folder!");
-            },
+            callbackName: "openFolderDialog",
           },
         ],
       },
@@ -261,7 +259,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
       }
     };
 
-  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | null>(null);
 
   useEffect(() => {
     if (devices.length > 0) {
@@ -342,9 +340,11 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
         />
         <Select
           size="sm"
-          value={selectedDevice ?? "none"}
+          value={selectedDevice?.id.toString() ?? "none"}
           onChange={(_, value) => {
-            setSelectedDevice(value as string);
+            setSelectedDevice(
+              devices.find((d) => d.id.toString() === value) || null
+            );
           }}
           placeholder="Select Device..."
         >
@@ -354,8 +354,8 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
             </Option>
           )}
           {devices.map((device, index) => (
-            <Option key={index} value={device}>
-              {device}
+            <Option key={index} value={device.id.toString()}>
+              {device.name}
             </Option>
           ))}
         </Select>

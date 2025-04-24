@@ -8,6 +8,7 @@ import "./IDE.css";
 import Console from "../components/Tiles/Console";
 import { useStore } from "../utilities/StoreContext";
 import { useParams } from "react-router";
+import { useIDE } from "../utilities/IDEContext";
 
 export interface IDEProps {}
 
@@ -17,6 +18,8 @@ export default () => {
   const [saveFile, setSaveFile] = useState<(() => void) | null>(null);
   const [theme] = useStore<"light" | "dark">("appearance/theme", "light");
   const { path } = useParams<"path">();
+  const { openFolderDialog } = useIDE();
+
   if (!path) {
     throw new Error("Path parameter is required in IDE component");
   }
@@ -26,6 +29,7 @@ export default () => {
   useEffect(() => {
     setCallbacks({
       save: saveFile ?? (() => {}),
+      openFolderDialog,
     });
   }, [saveFile]);
 

@@ -3,18 +3,15 @@ import { open } from "@tauri-apps/plugin-shell";
 import "./Onboarding.css";
 import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
 import RunCommand from "../components/RunCommand";
-import * as dialog from "@tauri-apps/plugin-dialog";
-import { useNavigate } from "react-router";
 import { useIDE } from "../utilities/IDEContext";
 
 export interface OnboardingProps {}
 
 export default ({}: OnboardingProps) => {
-  const { hasTheos, hasWSL, isWindows } = useIDE();
+  const { hasTheos, hasWSL, isWindows, openFolderDialog } = useIDE();
   const [ready, setReady] = useState(false);
   const [updatingTheos, setUpdatingTheos] = useState(false);
   const [installingTheos, setInstallingTheos] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (hasTheos !== null && isWindows !== null && hasWSL !== null) {
@@ -42,19 +39,7 @@ export default ({}: OnboardingProps) => {
         >
           Create New
         </Button>
-        <Button
-          size="lg"
-          disabled={!ready}
-          onClick={async () => {
-            const path = await dialog.open({
-              directory: true,
-              multiple: false,
-            });
-            if (path) {
-              navigate("/ide/" + encodeURIComponent(path));
-            }
-          }}
-        >
+        <Button size="lg" disabled={!ready} onClick={openFolderDialog}>
           Open Project
         </Button>
         {!ready && (
