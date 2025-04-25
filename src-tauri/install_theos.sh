@@ -264,6 +264,11 @@ linux() {
             DISTRIB_RELEASE="20.04"
         fi
 
+		# If its 24.04, use 22.04
+		if [[ $DISTRIB_RELEASE == 24.04 ]]; then
+			DISTRIB_RELEASE="22.04"
+		fi
+
         # Print the release number
         update "Downloading toolchain ubuntu$DISTRIB_RELEASE"
 
