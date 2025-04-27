@@ -6,6 +6,15 @@ import { Virtuoso } from "react-virtuoso";
 
 const convert = new Convert();
 
+function escapeHtml(unsafe: string) {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export default function Console() {
   const [lines, setLines] = useState<string[]>([]);
   const listenerAdded = useRef(false);
@@ -43,7 +52,7 @@ export default function Console() {
       itemContent={(_, line) => (
         <pre
           style={{ margin: 0 }}
-          dangerouslySetInnerHTML={{ __html: convert.toHtml(line) }}
+          dangerouslySetInnerHTML={{ __html: convert.toHtml(escapeHtml(line)) }}
         />
       )}
     />

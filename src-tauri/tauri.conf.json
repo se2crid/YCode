@@ -33,7 +33,8 @@
         "width": 800,
         "height": 600,
         "useHttpsScheme": true,
-        "visible": false
+        "visible": false,
+        "url": "/ide/%2Fhome%2Fnicholas%2FDocuments%2Fcoding%2Ftheos-test"
       },
       {
         "title": "YCode (Loading)",
