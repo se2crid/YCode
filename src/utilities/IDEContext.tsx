@@ -9,10 +9,11 @@ import React, {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Window } from "@tauri-apps/api/window";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { useToast } from "react-toast-plus";
 import { useNavigate } from "react-router-dom";
+import { Button, Input, Modal, ModalDialog, Typography } from "@mui/joy";
 
 export interface IDEContextType {
   initialized: boolean;
@@ -85,9 +86,14 @@ export const IDEProvider: React.FC<{
   }, [initialized]);
 
   const listenerAdded = useRef(false);
+  const listener2Added = useRef(false);
   const unlisten = useRef<() => void>(() => {});
+  const unlisten2fa = useRef<() => void>(() => {});
 
   const { addToast } = useToast();
+
+  const [tfaOpen, setTfaOpen] = useState(false);
+  const tfaInput = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!listenerAdded.current) {
@@ -106,6 +112,22 @@ export const IDEProvider: React.FC<{
     }
     return () => {
       unlisten.current();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!listener2Added.current) {
+      (async () => {
+        const unlistenFn = await listen("2fa-required", () => {
+          console.log("2FA required, opening dialog");
+          setTfaOpen(true);
+        });
+        unlisten2fa.current = unlistenFn;
+      })();
+      listener2Added.current = true;
+    }
+    return () => {
+      unlisten2fa.current();
     };
   }, []);
 
@@ -134,7 +156,51 @@ export const IDEProvider: React.FC<{
   );
 
   return (
-    <IDEContext.Provider value={contextValue}>{children}</IDEContext.Provider>
+    <IDEContext.Provider value={contextValue}>
+      {children}
+      <Modal
+        open={tfaOpen}
+        onClose={() => {
+          if (!tfaInput.current?.value) {
+            addToast.error("Please enter a 2FA code");
+            return;
+          }
+          emit("2fa-recieved", tfaInput.current?.value || "");
+          setTfaOpen(false);
+        }}
+      >
+        <ModalDialog>
+          <Typography level="body-md">
+            A two-factory authentication code has been sent, please enter it
+            below.
+          </Typography>
+          <form
+            onSubmit={() => {
+              if (!tfaInput.current?.value) {
+                addToast.error("Please enter a 2FA code");
+                return;
+              }
+              emit("2fa-recieved", tfaInput.current?.value || "");
+              setTfaOpen(false);
+              tfaInput.current!.value = ""; // Clear the input after submission
+              return false; // Prevent form submission
+            }}
+          >
+            <Input type="number" slotProps={{ input: { ref: tfaInput } }} />
+            <Button
+              variant="soft"
+              sx={{
+                margin: "10px 0",
+                width: "100%",
+              }}
+              type="submit"
+            >
+              Submit
+            </Button>
+          </form>
+        </ModalDialog>
+      </Modal>
+    </IDEContext.Provider>
   );
 };
 

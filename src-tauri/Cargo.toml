@@ -33,6 +33,7 @@ hex = "0.4.3"
 plist = "1.7.1"
 chrono = { version = "0.4.40", features = ["serde"] }
 locale_config = "0.3.0"
+icloud_auth = {path = "./apple-private-apis/icloud-auth" }
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

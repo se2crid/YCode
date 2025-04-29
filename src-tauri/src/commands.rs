@@ -1,14 +1,12 @@
+use icloud_auth::{AnisetteConfiguration, AppleAccount};
 use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection};
 use idevice::{lockdown::LockdownClient, IdeviceService};
 use serde::Serialize;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
-use std::sync::Arc;
 use std::thread;
 use tauri::path::BaseDirectory;
-use tauri::{Emitter, Manager};
-
-use crate::sideload::anisette::get_anisette_data;
+use tauri::{Emitter, Listener, Manager};
 
 #[derive(Serialize, Clone)]
 struct DeviceInfo {
@@ -283,20 +281,86 @@ pub async fn deploy_theos(
     apple_id: String,
     apple_pass: String,
 ) {
-    let log = Arc::new(move |msg: String| {
-        window
-            .emit("build-output", msg)
-            .expect("failed to send output");
-    });
-
-    let anisette_data = match get_anisette_data(log.clone()).await {
-        Ok(data) => data,
-        Err(e) => {
-            log(format!("Failed to get anisette data: {e}"));
-            return;
-        }
+    // returns (apple_id, password)
+    let appleid_closure = move || -> (String, String) {
+        println!("Apple ID: {}", apple_id);
+        (apple_id.clone(), apple_pass.clone())
     };
-    log(format!("Anisette data: {anisette_data:?}"));
+
+    // tfa_closure emits "2fa-required" and waits for "2fa-recieved"
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    let window_clone = window.clone();
+    let tfa_closure = move || {
+        window_clone
+            .emit("2fa-required", ())
+            .expect("Failed to emit 2fa-required event");
+
+        // Listen for "2fa-recieved" event and unregister after first call
+        let tx = tx.clone();
+        let handler_id = window_clone.listen("2fa-recieved", move |event| {
+            let code = event.payload();
+            let _ = tx.send(code.to_string());
+        });
+
+        // Wait for code from frontend
+        let code = rx.recv().expect("Failed to receive 2fa code");
+        // remove quotes from the string
+        let code = code.trim_matches('"').to_string();
+
+        // Unregister the listener
+        window_clone.unlisten(handler_id);
+
+        println!("Received 2FA code: {}", code);
+
+        code
+    };
+
+    let config = AnisetteConfiguration::default();
+    let config = config.set_configuration_path(
+        handle
+            .path()
+            .app_config_dir()
+            .expect("Failed to get config dir"),
+    );
+    println!("Config {:?}", config);
+    window
+        .emit("build-output", "Logging in...")
+        .expect("Failed to send output");
+
+    let account = AppleAccount::login(appleid_closure, tfa_closure, config).await;
+    if account.is_err() {
+        window
+            .emit("build-output", "Login failed!".to_string())
+            .expect("Failed to send output");
+        //send the error
+        window
+            .emit("build-output", format!("{:?}", account.err().unwrap()))
+            .expect("Failed to send output");
+        window
+            .emit("build-output", "command.done.999".to_string())
+            .expect("Failed to send output");
+        return;
+    }
+    let account = account.unwrap();
+    window
+        .emit("build-output", "Logged in successfully!".to_string())
+        .expect("Failed to send output");
+
+    //log(format!("Logged in as: {:?}", account)).await;
+    // let log = Arc::new(move |msg: String| {
+    //     window
+    //         .emit("build-output", msg)
+    //         .expect("failed to send output");
+    // });
+
+    // let anisette_data = match get_anisette_data(log.clone()).await {
+    //     Ok(data) => data,
+    //     Err(e) => {
+    //         log(format!("Failed to get anisette data: {e}"));
+    //         return;
+    //     }
+    // };
+    // log(format!("Anisette data: {anisette_data:?}"));
 
     // Uncomment and use the appropriate build function
     // if is_windows() {
