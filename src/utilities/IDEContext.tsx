@@ -13,7 +13,15 @@ import { emit, listen } from "@tauri-apps/api/event";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { useToast } from "react-toast-plus";
 import { useNavigate } from "react-router-dom";
-import { Button, Input, Modal, ModalDialog, Typography } from "@mui/joy";
+import {
+  Button,
+  Checkbox,
+  Input,
+  Modal,
+  ModalDialog,
+  Typography,
+} from "@mui/joy";
+import { useCommandRunner } from "./Command";
 
 export interface IDEContextType {
   initialized: boolean;
@@ -87,13 +95,19 @@ export const IDEProvider: React.FC<{
 
   const listenerAdded = useRef(false);
   const listener2Added = useRef(false);
+  const listener3Added = useRef(false);
   const unlisten = useRef<() => void>(() => {});
   const unlisten2fa = useRef<() => void>(() => {});
+  const unlistenAppleid = useRef<() => void>(() => {});
 
   const { addToast } = useToast();
 
   const [tfaOpen, setTfaOpen] = useState(false);
   const tfaInput = useRef<HTMLInputElement | null>(null);
+  const [appleIdOpen, setAppleIdOpen] = useState(false);
+  const appleIdInput = useRef<HTMLInputElement | null>(null);
+  const applePassInput = useRef<HTMLInputElement | null>(null);
+  const saveCredentials = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!listenerAdded.current) {
@@ -119,7 +133,6 @@ export const IDEProvider: React.FC<{
     if (!listener2Added.current) {
       (async () => {
         const unlistenFn = await listen("2fa-required", () => {
-          console.log("2FA required, opening dialog");
           setTfaOpen(true);
         });
         unlisten2fa.current = unlistenFn;
@@ -128,6 +141,21 @@ export const IDEProvider: React.FC<{
     }
     return () => {
       unlisten2fa.current();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!listener3Added.current) {
+      (async () => {
+        const unlistenFn = await listen("apple-id-required", () => {
+          setAppleIdOpen(true);
+        });
+        unlistenAppleid.current = unlistenFn;
+      })();
+      listener3Added.current = true;
+    }
+    return () => {
+      unlistenAppleid.current();
     };
   }, []);
 
@@ -142,6 +170,8 @@ export const IDEProvider: React.FC<{
       navigate("/ide/" + encodeURIComponent(path));
     }
   }, []);
+
+  const { cancelCommand } = useCommandRunner();
 
   const contextValue = useMemo(
     () => ({
@@ -171,7 +201,7 @@ export const IDEProvider: React.FC<{
       >
         <ModalDialog>
           <Typography level="body-md">
-            A two-factory authentication code has been sent, please enter it
+            A two-factor authentication code has been sent, please enter it
             below.
           </Typography>
           <form
@@ -196,6 +226,92 @@ export const IDEProvider: React.FC<{
               type="submit"
             >
               Submit
+            </Button>
+          </form>
+        </ModalDialog>
+      </Modal>
+      <Modal
+        open={appleIdOpen}
+        onClose={() => {
+          setAppleIdOpen(false);
+          appleIdInput.current!.value = "";
+          applePassInput.current!.value = "";
+          emit("login-cancelled");
+          cancelCommand();
+        }}
+      >
+        <ModalDialog>
+          <Typography level="body-md">
+            Login with your apple account to continue
+          </Typography>
+          <Typography level="body-xs">
+            Your credentials will only be sent to apple. In general, never trust
+            a third-party app with your Apple ID. We recommend using a burner
+            account with YCode and other sideloaders. (YCode is not very secure)
+          </Typography>
+          <form
+            onSubmit={() => {
+              if (
+                appleIdInput.current?.value &&
+                applePassInput.current?.value
+              ) {
+                setAppleIdOpen(false);
+                emit("apple-id-recieved", {
+                  appleId: appleIdInput.current.value,
+                  applePass: applePassInput.current.value,
+                  saveCredentials: saveCredentials.current?.checked || false,
+                });
+              } else {
+                addToast.error("Please enter your Apple ID and password");
+              }
+              return false;
+            }}
+          >
+            <Input
+              type="text"
+              slotProps={{ input: { ref: appleIdInput } }}
+              placeholder="Apple ID"
+              sx={{ marginBottom: "var(--padding-sm)" }}
+            />
+            <Input
+              type="password"
+              slotProps={{ input: { ref: applePassInput } }}
+              placeholder="Password"
+            />
+            <Checkbox
+              slotProps={{ input: { ref: saveCredentials } }}
+              sx={{ marginTop: "var(--padding-sm)", color: "grey" }}
+              label="Remember credentials"
+              size="sm"
+            />
+            <Button
+              variant="soft"
+              sx={{
+                margin: "var(--padding-md) 0",
+                width: "100%",
+                marginBottom: "0",
+              }}
+              type="submit"
+            >
+              Submit
+            </Button>
+            <Button
+              variant="soft"
+              sx={{
+                margin: "var(--padding-md) 0",
+                width: "100%",
+                marginBottom: "0",
+              }}
+              onClick={() => {
+                setAppleIdOpen(false);
+                appleIdInput.current!.value = "";
+                applePassInput.current!.value = "";
+                emit("login-cancelled");
+                cancelCommand();
+              }}
+              color="neutral"
+            >
+              Cancel
             </Button>
           </form>
         </ModalDialog>

@@ -1,7 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod sideload;
 #[macro_use]
 mod commands;
 
@@ -23,7 +22,9 @@ fn main() {
             has_wsl,
             build_theos,
             deploy_theos,
-            refresh_idevice
+            refresh_idevice,
+            delete_stored_credentials,
+            reset_anisette
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

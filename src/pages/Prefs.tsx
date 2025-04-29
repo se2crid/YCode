@@ -7,10 +7,11 @@ import { Fragment, useContext } from "react";
 import { StoreContext } from "../utilities/StoreContext";
 import Pref from "./Pref";
 import { getAllWindows } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 export type PrefSetting = {
   name: string;
   description: string;
-  type: "text" | "select" | "checkbox";
+  type: "text" | "select" | "checkbox" | "button";
   options?: Array<{ label: string; value: string }>;
   defaultValue?: any;
   onChange?: (value: any) => void;
@@ -42,6 +43,38 @@ const prefs: PrefPage[][] = [
             for (const win of windows) {
               await win.setTheme(value as "light" | "dark");
             }
+          },
+        },
+      ],
+    },
+    {
+      name: "Apple ID",
+      settings: [
+        {
+          name: "Anisette Server",
+          description:
+            "Select an anisette server to use for Apple ID authentication.",
+          type: "select",
+          options: [
+            { label: "Sidestore (.io)", value: "ani.sidestore.io" },
+            { label: "Sidestore (.app)", value: "ani.sidestore.app" },
+          ],
+          defaultValue: "ani.sidestore.io",
+        },
+        {
+          name: "Reset Anisette",
+          description: "Remove all anisette data (will require 2fa again)",
+          type: "button",
+          onChange: async () => {
+            invoke("reset_anisette");
+          },
+        },
+        {
+          name: "Reset Saved Credentials",
+          description: "Remove saved Apple ID credentials",
+          type: "button",
+          onChange: async () => {
+            invoke("delete_stored_credentials");
           },
         },
       ],

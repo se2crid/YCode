@@ -1,10 +1,14 @@
 use icloud_auth::{AnisetteConfiguration, AppleAccount};
 use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection};
 use idevice::{lockdown::LockdownClient, IdeviceService};
+use keyring::{Entry, Error as KeyringError};
 use serde::Serialize;
+use serde_json::Value;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
+use std::sync::mpsc::RecvTimeoutError;
 use std::thread;
+use std::time::Duration;
 use tauri::path::BaseDirectory;
 use tauri::{Emitter, Listener, Manager};
 
@@ -273,103 +277,197 @@ pub async fn build_theos(window: tauri::Window, folder: String) {
     }
 }
 
+// Helper functions for credential storage
+fn store_credentials(email: &str, password: &str) -> Result<(), KeyringError> {
+    // Store email under a fixed key, and password under the email key
+    let email_entry = Entry::new("y-code", "apple_id_email")?;
+    email_entry.set_password(email)?;
+    let pass_entry = Entry::new("y-code", email)?;
+    pass_entry.set_password(password)
+}
+
+fn get_stored_credentials() -> Option<(String, String)> {
+    // Retrieve email from fixed key, then password from that email
+    let email_entry = Entry::new("y-code", "apple_id_email").ok()?;
+    let email = email_entry.get_password().ok()?;
+    let pass_entry = Entry::new("y-code", &email).ok()?;
+    let password = pass_entry.get_password().ok()?;
+    Some((email, password))
+}
+
+#[tauri::command]
+pub fn delete_stored_credentials() -> Result<(), String> {
+    let email_entry =
+        Entry::new("y-code", "apple_id_email").map_err(|e| format!("Keyring error: {:?}", e))?;
+    let email = match email_entry.get_password() {
+        Ok(email) => email,
+        Err(_) => {
+            // If email is not found, nothing to delete
+            return Ok(());
+        }
+    };
+    let pass_entry = Entry::new("y-code", &email).map_err(|e| format!("Keyring error: {:?}", e))?;
+    let _ = pass_entry.delete_password();
+    email_entry
+        .delete_password()
+        .map_err(|e| format!("Keyring error: {:?}", e))
+}
+
 #[tauri::command]
 pub async fn deploy_theos(
     handle: tauri::AppHandle,
     window: tauri::Window,
-    folder: String,
-    apple_id: String,
-    apple_pass: String,
-) {
-    // returns (apple_id, password)
-    let appleid_closure = move || -> (String, String) {
-        println!("Apple ID: {}", apple_id);
-        (apple_id.clone(), apple_pass.clone())
-    };
-
-    // tfa_closure emits "2fa-required" and waits for "2fa-recieved"
+    anisette_server: String,
+    _folder: String,
+) -> Result<(), String> {
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     let window_clone = window.clone();
-    let tfa_closure = move || {
+    let appleid_closure = move || -> (String, String) {
+        // Try to get stored credentials first
+        if let Some((email, password)) = get_stored_credentials() {
+            window_clone
+                .emit(
+                    "build-output",
+                    "Using stored Apple ID credentials".to_string(),
+                )
+                .ok();
+            return (email, password);
+        }
+
+        window_clone
+            .emit("apple-id-required", ())
+            .expect("Failed to emit apple-id-required event");
+
+        let tx1 = tx.clone();
+        let handler_id_recieved = window_clone.listen("apple-id-recieved", move |event| {
+            let json = event.payload();
+            let _ = tx1.send(format!("apple-id-recieved:{}", json));
+        });
+
+        let tx2 = tx.clone();
+        let handler_id_cancelled = window_clone.listen("login-cancelled", move |_event| {
+            let _ = tx2.send("login-cancelled".to_string());
+        });
+
+        let result = rx.recv_timeout(Duration::from_secs(120));
+        window_clone.unlisten(handler_id_recieved);
+        window_clone.unlisten(handler_id_cancelled);
+
+        match result {
+            Ok(msg) if msg.starts_with("apple-id-recieved:") => {
+                let json = &msg["apple-id-recieved:".len()..];
+                let json: Value = serde_json::from_str(json).expect("Failed to parse json");
+                let apple_id = json
+                    .get("appleId")
+                    .and_then(Value::as_str)
+                    .expect("Failed to get apple_id from json")
+                    .to_string();
+                let password = json
+                    .get("applePass")
+                    .and_then(Value::as_str)
+                    .expect("Failed to get password from json")
+                    .to_string();
+                let save_credentials = json
+                    .get("saveCredentials")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+
+                if save_credentials {
+                    // Store both email and password securely
+                    if let Err(e) = store_credentials(&apple_id, &password) {
+                        window_clone
+                            .emit(
+                                "build-output",
+                                format!("Failed to save credentials: {:?}", e),
+                            )
+                            .ok();
+                    }
+                }
+
+                (apple_id, password)
+            }
+            Ok(msg) if msg == "login-cancelled" => {
+                window_clone
+                    .emit("build-output", "Login cancelled by user".to_string())
+                    .ok();
+                panic!("Login cancelled by user");
+            }
+            Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) | _ => {
+                window_clone
+                    .emit("build-output", "Login cancelled or timed out".to_string())
+                    .ok();
+                panic!("Login cancelled or timed out");
+            }
+        }
+    };
+
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    let window_clone = window.clone();
+    let tfa_closure = move || -> String {
         window_clone
             .emit("2fa-required", ())
             .expect("Failed to emit 2fa-required event");
 
-        // Listen for "2fa-recieved" event and unregister after first call
         let tx = tx.clone();
         let handler_id = window_clone.listen("2fa-recieved", move |event| {
             let code = event.payload();
             let _ = tx.send(code.to_string());
         });
 
-        // Wait for code from frontend
-        let code = rx.recv().expect("Failed to receive 2fa code");
-        // remove quotes from the string
-        let code = code.trim_matches('"').to_string();
-
-        // Unregister the listener
+        let result = rx.recv_timeout(Duration::from_secs(120));
         window_clone.unlisten(handler_id);
 
-        println!("Received 2FA code: {}", code);
-
-        code
+        match result {
+            Ok(code) => {
+                let code = code.trim_matches('"').to_string();
+                code
+            }
+            Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {
+                window_clone
+                    .emit("build-output", "2FA cancelled or timed out".to_string())
+                    .ok();
+                panic!("2FA cancelled or timed out");
+            }
+        }
     };
 
     let config = AnisetteConfiguration::default();
-    let config = config.set_configuration_path(
-        handle
-            .path()
-            .app_config_dir()
-            .expect("Failed to get config dir"),
-    );
-    println!("Config {:?}", config);
+    let config =
+        config.set_configuration_path(handle.path().app_config_dir().map_err(|e| e.to_string())?);
+    let config = config.set_anisette_url(format!("https://{}", anisette_server));
     window
         .emit("build-output", "Logging in...")
-        .expect("Failed to send output");
+        .map_err(|e| e.to_string())?;
 
     let account = AppleAccount::login(appleid_closure, tfa_closure, config).await;
-    if account.is_err() {
+    if let Err(e) = account {
         window
-            .emit("build-output", "Login failed!".to_string())
-            .expect("Failed to send output");
-        //send the error
-        window
-            .emit("build-output", format!("{:?}", account.err().unwrap()))
-            .expect("Failed to send output");
+            .emit("build-output", "Login failed or cancelled!".to_string())
+            .ok();
+        window.emit("build-output", format!("{:?}", e)).ok();
         window
             .emit("build-output", "command.done.999".to_string())
-            .expect("Failed to send output");
-        return;
+            .ok();
+        return Err(format!("{:?}", e));
     }
     let account = account.unwrap();
     window
         .emit("build-output", "Logged in successfully!".to_string())
-        .expect("Failed to send output");
+        .map_err(|e| e.to_string())?;
 
-    //log(format!("Logged in as: {:?}", account)).await;
-    // let log = Arc::new(move |msg: String| {
-    //     window
-    //         .emit("build-output", msg)
-    //         .expect("failed to send output");
-    // });
-
-    // let anisette_data = match get_anisette_data(log.clone()).await {
-    //     Ok(data) => data,
-    //     Err(e) => {
-    //         log(format!("Failed to get anisette data: {e}"));
-    //         return;
-    //     }
-    // };
-    // log(format!("Anisette data: {anisette_data:?}"));
-
-    // Uncomment and use the appropriate build function
-    // if is_windows() {
-    //     build_theos_windows(window, &folder).await;
-    // } else {
-    //     build_theos_linux(window, &folder).await;
-    // }
+    Ok(())
 }
 
+#[tauri::command]
+pub async fn reset_anisette(handle: tauri::AppHandle) -> Result<(), String> {
+    let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
+    let status_path = config_dir.join("state.plist");
+    if status_path.exists() {
+        std::fs::remove_file(&status_path).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
 #[tauri::command]
 pub async fn refresh_idevice(window: tauri::Window) {
     let mut usbmuxd = UsbmuxdConnection::default()

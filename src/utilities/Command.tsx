@@ -63,16 +63,18 @@ export function useCommandRunner() {
 
   // Define the cancel command function inside the hook
   const cancelCommand = async () => {
-    commandRunnerMutex.cancel();
-    const release = await commandRunnerMutex.acquire();
-    setIsRunningCommand(true);
-    setCurrentCommand(null);
     try {
-      await invoke("cancel_command");
+      commandRunnerMutex.cancel();
+      commandRunnerMutex.release();
     } finally {
-      release();
+      setIsRunningCommand(true);
+      setCurrentCommand(null);
+      // try {
+      //   await invoke("cancel_command");
+      // } finally {
       setIsRunningCommand(false);
     }
+    //}
   };
 
   return {

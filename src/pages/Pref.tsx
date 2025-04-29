@@ -1,4 +1,4 @@
-import { Typography } from "@mui/joy";
+import { Button, Input, Option, Select, Typography } from "@mui/joy";
 import { PrefSetting } from "./Prefs";
 import { useStore } from "../utilities/StoreContext";
 
@@ -15,9 +15,11 @@ export default ({ setting, pageName, storeExists }: PrefParams) => {
   );
   return (
     <div className="prefs-setting">
-      <Typography level="body-sm">{setting.name}</Typography>
+      {setting.type !== "button" && (
+        <Typography level="body-md">{setting.name}</Typography>
+      )}
       {setting.type === "text" && (
-        <input
+        <Input
           type="text"
           disabled={!storeExists}
           defaultValue={value}
@@ -30,25 +32,26 @@ export default ({ setting, pageName, storeExists }: PrefParams) => {
         />
       )}
       {setting.type === "select" && (
-        <select
+        <Select
           value={value}
+          size="sm"
           disabled={!storeExists}
-          onChange={(e) => {
-            setValue(e.target.value);
+          onChange={(_, newValue) => {
+            setValue(newValue);
             if (setting.onChange) {
-              setting.onChange(e.target.value);
+              setting.onChange(newValue);
             }
           }}
         >
           {setting.options?.map((option) => (
-            <option key={option.value} value={option.value}>
+            <Option key={option.value} value={option.value}>
               {option.label}
-            </option>
+            </Option>
           ))}
-        </select>
+        </Select>
       )}
       {setting.type === "checkbox" && (
-        <input
+        <Input
           type="checkbox"
           defaultChecked={value === "true"}
           disabled={!storeExists}
@@ -59,6 +62,20 @@ export default ({ setting, pageName, storeExists }: PrefParams) => {
             }
           }}
         />
+      )}
+      {setting.type === "button" && (
+        <Button
+          variant="soft"
+          disabled={!storeExists}
+          onClick={() => {
+            if (setting.onChange) {
+              setting.onChange("");
+            }
+          }}
+          sx={{ marginBottom: "var(--padding-md)" }}
+        >
+          {setting.name}
+        </Button>
       )}
     </div>
   );

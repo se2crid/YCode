@@ -48,11 +48,11 @@ const IDELayout = () => {
           : {}
       }
     >
-      <IDEProvider>
-        <CommandProvider>
+      <CommandProvider>
+        <IDEProvider>
           <Outlet />
-        </CommandProvider>
-      </IDEProvider>
+        </IDEProvider>
+      </CommandProvider>
     </ToastProvider>
   );
 };

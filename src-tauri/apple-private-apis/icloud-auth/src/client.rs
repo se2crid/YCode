@@ -7,7 +7,8 @@ use cbc::cipher::{BlockDecryptMut, KeyIvInit};
 use hmac::{Hmac, Mac};
 use omnisette::AnisetteConfiguration;
 use reqwest::{
-    header::{HeaderMap, HeaderName, HeaderValue}, Certificate, Client, ClientBuilder, Proxy, Response
+    header::{HeaderMap, HeaderName, HeaderValue},
+    Certificate, Client, ClientBuilder, Response,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -121,7 +122,7 @@ struct VerifyCode {
 
 #[derive(Serialize, Debug, Clone)]
 struct PhoneNumber {
-    id: u32
+    id: u32,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -129,7 +130,7 @@ struct PhoneNumber {
 pub struct VerifyBody {
     phone_number: PhoneNumber,
     mode: String,
-    security_code: Option<VerifyCode>
+    security_code: Option<VerifyCode>,
 }
 
 #[repr(C)]
@@ -139,7 +140,7 @@ pub struct TrustedPhoneNumber {
     pub number_with_dial_code: String,
     pub last_two_digits: String,
     pub push_mode: String,
-    pub id: u32
+    pub id: u32,
 }
 
 #[derive(Deserialize)]
@@ -168,7 +169,9 @@ pub struct AuthenticationExtras {
 //     }
 // }
 
-async fn parse_response(res: Result<Response, reqwest::Error>) -> Result<plist::Dictionary, crate::Error> {
+async fn parse_response(
+    res: Result<Response, reqwest::Error>,
+) -> Result<plist::Dictionary, crate::Error> {
     let res = res?.text().await?;
     let res: plist::Dictionary = plist::from_bytes(res.as_bytes())?;
     let res: plist::Value = res.get("Response").unwrap().to_owned();
@@ -278,7 +281,8 @@ impl AppleAccount {
             .post(GSA_ENDPOINT)
             .headers(gsa_headers.clone())
             .body(buffer)
-            .send().await;
+            .send()
+            .await;
         let res = parse_response(res).await?;
         let err_check = Self::check_error(&res);
         if err_check.is_err() {
@@ -333,9 +337,7 @@ impl AppleAccount {
                 LoginState::Needs2FAVerification => {
                     response = _self.verify_2fa(tfa_closure()).await?
                 }
-                LoginState::NeedsSMS2FA => {
-                    response = _self.send_sms_2fa_to_devices(1).await?
-                }
+                LoginState::NeedsSMS2FA => response = _self.send_sms_2fa_to_devices(1).await?,
                 LoginState::NeedsSMS2FAVerification(body) => {
                     response = _self.verify_sms_2fa(tfa_closure(), body).await?
                 }
@@ -345,9 +347,9 @@ impl AppleAccount {
                 LoginState::LoggedIn => return Ok(_self),
                 LoginState::NeedsExtraStep(step) => {
                     if _self.get_pet().is_some() {
-                        return Ok(_self)
+                        return Ok(_self);
                     } else {
-                        return Err(Error::ExtraStep(step))
+                        return Err(Error::ExtraStep(step));
                     }
                 }
             }
@@ -356,16 +358,42 @@ impl AppleAccount {
 
     pub fn get_pet(&self) -> Option<String> {
         let Some(token) = self.spd.as_ref().unwrap().get("t") else {
-            return None
+            return None;
         };
-        Some(token.as_dictionary().unwrap().get("com.apple.gs.idms.pet")
-            .unwrap().as_dictionary().unwrap().get("token").unwrap().as_string().unwrap().to_string())
+        Some(
+            token
+                .as_dictionary()
+                .unwrap()
+                .get("com.apple.gs.idms.pet")
+                .unwrap()
+                .as_dictionary()
+                .unwrap()
+                .get("token")
+                .unwrap()
+                .as_string()
+                .unwrap()
+                .to_string(),
+        )
     }
 
     pub fn get_name(&self) -> (String, String) {
         (
-            self.spd.as_ref().unwrap().get("fn").unwrap().as_string().unwrap().to_string(),
-            self.spd.as_ref().unwrap().get("ln").unwrap().as_string().unwrap().to_string()
+            self.spd
+                .as_ref()
+                .unwrap()
+                .get("fn")
+                .unwrap()
+                .as_string()
+                .unwrap()
+                .to_string(),
+            self.spd
+                .as_ref()
+                .unwrap()
+                .get("ln")
+                .unwrap()
+                .as_string()
+                .unwrap()
+                .to_string(),
         )
     }
 
@@ -423,7 +451,8 @@ impl AppleAccount {
             .post(GSA_ENDPOINT)
             .headers(gsa_headers.clone())
             .body(buffer)
-            .send().await;
+            .send()
+            .await;
 
         let res = parse_response(res).await?;
         let err_check = Self::check_error(&res);
@@ -476,7 +505,8 @@ impl AppleAccount {
             .post(GSA_ENDPOINT)
             .headers(gsa_headers.clone())
             .body(buffer)
-            .send().await;
+            .send()
+            .await;
 
         let res = parse_response(res).await?;
         let err_check = Self::check_error(&res);
@@ -499,8 +529,8 @@ impl AppleAccount {
             return match s.as_str() {
                 "trustedDeviceSecondaryAuth" => Ok(LoginState::NeedsDevice2FA),
                 "secondaryAuth" => Ok(LoginState::NeedsSMS2FA),
-                _unk => Ok(LoginState::NeedsExtraStep(_unk.to_string()))
-            }
+                _unk => Ok(LoginState::NeedsExtraStep(_unk.to_string())),
+            };
         }
 
         Ok(LoginState::LoggedIn)
@@ -533,7 +563,8 @@ impl AppleAccount {
             .client
             .get("https://gsa.apple.com/auth/verify/trusteddevice")
             .headers(headers.await)
-            .send().await?;
+            .send()
+            .await?;
 
         if !res.status().is_success() {
             return Err(Error::AuthSrp);
@@ -545,13 +576,10 @@ impl AppleAccount {
     pub async fn send_sms_2fa_to_devices(&self, phone_id: u32) -> Result<LoginState, crate::Error> {
         let headers = self.build_2fa_headers(true);
 
-
         let body = VerifyBody {
-            phone_number: PhoneNumber {
-                id: phone_id
-            },
+            phone_number: PhoneNumber { id: phone_id },
             mode: "sms".to_string(),
-            security_code: None
+            security_code: None,
         };
 
         let res = self
@@ -559,7 +587,8 @@ impl AppleAccount {
             .put("https://gsa.apple.com/auth/verify/phone/")
             .headers(headers.await)
             .json(&body)
-            .send().await?;
+            .send()
+            .await?;
 
         if !res.status().is_success() {
             return Err(Error::AuthSrp);
@@ -571,20 +600,22 @@ impl AppleAccount {
     pub async fn get_auth_extras(&self) -> Result<AuthenticationExtras, Error> {
         let headers = self.build_2fa_headers(true);
 
-        let req = self.client
+        let req = self
+            .client
             .get("https://gsa.apple.com/auth")
             .headers(headers.await)
             .header("Accept", "application/json")
-            .send().await?;
+            .send()
+            .await?;
         let status = req.status().as_u16();
         let mut new_state = req.json::<AuthenticationExtras>().await?;
         if status == 201 {
             new_state.new_state = Some(LoginState::NeedsSMS2FAVerification(VerifyBody {
                 phone_number: PhoneNumber {
-                    id: new_state.trusted_phone_numbers.first().unwrap().id
+                    id: new_state.trusted_phone_numbers.first().unwrap().id,
                 },
                 mode: "sms".to_string(),
-                security_code: None
+                security_code: None,
             }));
         }
 
@@ -602,17 +633,21 @@ impl AppleAccount {
                 HeaderName::from_str("security-code").unwrap(),
                 HeaderValue::from_str(&code).unwrap(),
             )
-            .send().await?;
+            .send()
+            .await?;
 
-        let res: plist::Dictionary =
-            plist::from_bytes(res.text().await?.as_bytes())?;
+        let res: plist::Dictionary = plist::from_bytes(res.text().await?.as_bytes())?;
 
         Self::check_error(&res)?;
 
         Ok(LoginState::NeedsLogin)
     }
 
-    pub async fn verify_sms_2fa(&self, code: String, mut body: VerifyBody) -> Result<LoginState, Error> {
+    pub async fn verify_sms_2fa(
+        &self,
+        code: String,
+        mut body: VerifyBody,
+    ) -> Result<LoginState, Error> {
         let headers = self.build_2fa_headers(true).await;
         // println!("Recieved code: {}", code);
 
@@ -624,7 +659,8 @@ impl AppleAccount {
             .headers(headers)
             .header("accept", "application/json")
             .json(&body)
-            .send().await?;
+            .send()
+            .await?;
 
         if res.status() != 200 {
             return Err(Error::Bad2faCode);

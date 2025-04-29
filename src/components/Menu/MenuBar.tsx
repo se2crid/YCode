@@ -12,6 +12,7 @@ import { useParams } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Divider, Option, Select } from "@mui/joy";
 import { DeviceInfo, useIDE } from "../../utilities/IDEContext";
+import { useStore } from "../../utilities/StoreContext";
 
 const bar = [
   {
@@ -170,6 +171,10 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
   const resetMenuIndex = useCallback(() => setMenuIndex(null), []);
   const { path } = useParams<"path">();
   const { devices } = useIDE();
+  const [anisetteServer] = useStore<string>(
+    "apple id/anisette server",
+    "ani.sidestore.io"
+  );
 
   useEffect(() => {
     const items: { shortcut: Shortcut; callback: () => void }[] = [];
@@ -363,7 +368,10 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
           variant="plain"
           command="deploy_theos"
           icon={<PhonelinkSetup />}
-          parameters={{ folder: path }}
+          parameters={{
+            folder: path,
+            anisetteServer,
+          }}
           sx={{ marginRight: 0 }}
         />
       </div>
