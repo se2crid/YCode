@@ -210,7 +210,6 @@ impl AppleAccount {
         let client = ClientBuilder::new()
             .add_root_certificate(Certificate::from_der(APPLE_ROOT)?)
             .http1_title_case_headers()
-            .danger_accept_invalid_certs(true)
             .connection_verbose(true)
             .build()?;
 

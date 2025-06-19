@@ -278,9 +278,7 @@ pub async fn build_theos(window: tauri::Window, folder: String) {
     }
 }
 
-// Helper functions for credential storage
 fn store_credentials(email: &str, password: &str) -> Result<(), KeyringError> {
-    // Store email under a fixed key, and password under the email key
     let email_entry = Entry::new("y-code", "apple_id_email")?;
     email_entry.set_password(email)?;
     let pass_entry = Entry::new("y-code", email)?;
@@ -288,7 +286,6 @@ fn store_credentials(email: &str, password: &str) -> Result<(), KeyringError> {
 }
 
 fn get_stored_credentials() -> Option<(String, String)> {
-    // Retrieve email from fixed key, then password from that email
     let email_entry = Entry::new("y-code", "apple_id_email").ok()?;
     let email = email_entry.get_password().ok()?;
     let pass_entry = Entry::new("y-code", &email).ok()?;
@@ -303,7 +300,6 @@ pub fn delete_stored_credentials() -> Result<(), String> {
     let email = match email_entry.get_password() {
         Ok(email) => email,
         Err(_) => {
-            // If email is not found, nothing to delete
             return Ok(());
         }
     };
@@ -452,7 +448,7 @@ pub async fn deploy_theos(
     let account = AppleAccount::login(appleid_closure, tfa_closure, config).await;
     if let Err(e) = account {
         window
-            .emit("build-output", "Login failed or cancelled!".to_string())
+            .emit("build-output", "Login failed or cancelled".to_string())
             .ok();
         window.emit("build-output", format!("{:?}", e)).ok();
         window
@@ -462,7 +458,7 @@ pub async fn deploy_theos(
     }
     let account = account.unwrap();
     window
-        .emit("build-output", "Logged in successfully!".to_string())
+        .emit("build-output", "Logged in successfully".to_string())
         .map_err(|e| e.to_string())?;
 
     let teams = account.list_teams().await;
@@ -478,7 +474,7 @@ pub async fn deploy_theos(
     }
     let team = teams.unwrap()[0].clone();
     window
-        .emit("build-output", format!("Successfully retrieved team!"))
+        .emit("build-output", format!("Successfully retrieved team"))
         .ok();
     let devices = account.list_devices(DeveloperDeviceType::Ios, &team).await;
     if let Err(e) = devices {
@@ -504,14 +500,11 @@ pub async fn deploy_theos(
             .await
             .map_err(|e| format!("Failed to add device: {:?}", e))?;
         window
-            .emit("build-output", "Device added to your account!".to_string())
+            .emit("build-output", "Device added to your account".to_string())
             .ok();
     }
     window
-        .emit(
-            "build-output",
-            "Device is a development device!".to_string(),
-        )
+        .emit("build-output", "Device is a development device".to_string())
         .ok();
 
     Ok(())
