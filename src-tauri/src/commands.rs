@@ -1,9 +1,8 @@
-use chrono::format;
-use icloud_auth::{AnisetteConfiguration, AppleAccount};
+use icloud_auth::{AnisetteConfiguration, AppleAccount, DeveloperDeviceType};
 use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection};
 use idevice::{lockdown::LockdownClient, IdeviceService};
 use keyring::{Entry, Error as KeyringError};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
@@ -13,10 +12,11 @@ use std::time::Duration;
 use tauri::path::BaseDirectory;
 use tauri::{Emitter, Listener, Manager};
 
-#[derive(Serialize, Clone)]
-struct DeviceInfo {
+#[derive(Deserialize, Serialize, Clone)]
+pub struct DeviceInfo {
     name: String,
     id: u32,
+    uuid: String,
 }
 
 #[tauri::command]
@@ -319,10 +319,20 @@ pub async fn deploy_theos(
     handle: tauri::AppHandle,
     window: tauri::Window,
     anisette_server: String,
+    device: DeviceInfo,
     _folder: String,
 ) -> Result<(), String> {
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     let window_clone = window.clone();
+    if device.uuid.is_empty() {
+        window_clone
+            .emit("build-output", "No device selected".to_string())
+            .ok();
+        window_clone
+            .emit("build-output", "command.done.999".to_string())
+            .ok();
+        return Err("No device selected".to_string());
+    }
     let appleid_closure = move || -> (String, String) {
         if let Some((email, password)) = get_stored_credentials() {
             window_clone
@@ -466,9 +476,42 @@ pub async fn deploy_theos(
             .ok();
         return Err(format!("{:?}", e));
     }
-    let teams = teams.unwrap();
+    let team = teams.unwrap()[0].clone();
     window
-        .emit("build-output", format!("Found teams: {:?}", teams))
+        .emit("build-output", format!("Successfully retrieved team!"))
+        .ok();
+    let devices = account.list_devices(DeveloperDeviceType::Ios, &team).await;
+    if let Err(e) = devices {
+        window
+            .emit("build-output", "Failed to list devices".to_string())
+            .ok();
+        window.emit("build-output", format!("{:?}", e)).ok();
+        window
+            .emit("build-output", "command.done.999".to_string())
+            .ok();
+        return Err(format!("{:?}", e));
+    }
+    let devices = devices.unwrap();
+    if !devices.iter().any(|d| d.device_number == device.uuid) {
+        window
+            .emit(
+                "build-output",
+                "Device not found in your account".to_string(),
+            )
+            .ok();
+        account
+            .add_device(DeveloperDeviceType::Ios, &team, &device.name, &device.uuid)
+            .await
+            .map_err(|e| format!("Failed to add device: {:?}", e))?;
+        window
+            .emit("build-output", "Device added to your account!".to_string())
+            .ok();
+    }
+    window
+        .emit(
+            "build-output",
+            "Device is a development device!".to_string(),
+        )
         .ok();
 
     Ok(())
@@ -486,9 +529,16 @@ pub async fn reset_anisette(handle: tauri::AppHandle) -> Result<(), String> {
 }
 #[tauri::command]
 pub async fn refresh_idevice(window: tauri::Window) {
-    let mut usbmuxd = UsbmuxdConnection::default()
-        .await
-        .expect("Unable to connect to usbmxud");
+    let usbmuxd = UsbmuxdConnection::default().await;
+    if usbmuxd.is_err() {
+        eprintln!("Failed to connect to usbmuxd: {:?}", usbmuxd.err());
+        window
+            .emit("idevices", Vec::<DeviceInfo>::new())
+            .expect("Failed to send devices");
+        return;
+    }
+    let mut usbmuxd = usbmuxd.unwrap();
+
     let devs = usbmuxd.get_devices().await.unwrap();
     if devs.is_empty() {
         window
@@ -511,6 +561,7 @@ pub async fn refresh_idevice(window: tauri::Window) {
                     return DeviceInfo {
                         name: String::from("Unknown Device"),
                         id: device_uid,
+                        uuid: d.udid.clone(),
                     };
                 }
             };
@@ -526,6 +577,7 @@ pub async fn refresh_idevice(window: tauri::Window) {
             DeviceInfo {
                 name: device_name,
                 id: device_uid,
+                uuid: d.udid.clone(),
             }
         })
         .collect();

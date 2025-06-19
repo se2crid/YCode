@@ -13,6 +13,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Divider, Option, Select } from "@mui/joy";
 import { DeviceInfo, useIDE } from "../../utilities/IDEContext";
 import { useStore } from "../../utilities/StoreContext";
+import { useToast } from "react-toast-plus";
 
 const bar = [
   {
@@ -175,6 +176,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
     "apple id/anisette server",
     "ani.sidestore.io"
   );
+  const { addToast } = useToast();
 
   useEffect(() => {
     const items: { shortcut: Shortcut; callback: () => void }[] = [];
@@ -371,6 +373,14 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
           parameters={{
             folder: path,
             anisetteServer,
+            device: selectedDevice,
+          }}
+          validate={() => {
+            if (!selectedDevice) {
+              addToast.error("Please select a device to deploy to.");
+              return false;
+            }
+            return true;
           }}
           sx={{ marginRight: 0 }}
         />

@@ -35,6 +35,7 @@ export interface IDEContextType {
 export type DeviceInfo = {
   name: string;
   id: number;
+  uuid: string;
 };
 
 export const IDEContext = createContext<IDEContextType | null>(null);

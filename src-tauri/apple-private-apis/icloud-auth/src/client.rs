@@ -1,6 +1,6 @@
 use crate::{anisette::AnisetteData, Error};
 use aes::cipher::block_padding::Pkcs7;
-use botan::Cipher; // <-- Use Cipher_Mode instead of CipherMode
+use botan::Cipher;
 use cbc::cipher::{BlockDecryptMut, KeyIvInit};
 use hmac::{Hmac, Mac};
 use omnisette::AnisetteConfiguration;
@@ -9,7 +9,7 @@ use reqwest::{
     Certificate, Client, ClientBuilder, Response,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256}; // Remove Digest import if present
+use sha2::{Digest, Sha256};
 use srp::{
     client::{SrpClient, SrpClientVerifier},
     groups::G_2048,
@@ -156,17 +156,37 @@ pub struct AuthenticationExtras {
     pub new_state: Option<LoginState>,
 }
 
-// impl Send2FAToDevices {
-//     pub fn send_2fa_to_devices(&self) -> LoginResponse {
-//         self.account.send_2fa_to_devices().unwrap()
-//     }
-// }
+#[derive(Debug, Clone)]
+pub enum DeveloperDeviceType {
+    Any,
+    Ios,
+    Tvos,
+    Watchos,
+}
 
-// impl Verify2FA {
-//     pub fn verify_2fa(&self, tfa_code: &str) -> LoginResponse {
-//         self.account.verify_2fa(&tfa_code).unwrap()
-//     }
-// }
+impl DeveloperDeviceType {
+    pub fn url_segment(&self) -> &'static str {
+        match self {
+            DeveloperDeviceType::Any => "",
+            DeveloperDeviceType::Ios => "ios/",
+            DeveloperDeviceType::Tvos => "tvos/",
+            DeveloperDeviceType::Watchos => "watchos/",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DeveloperDevice {
+    pub device_id: String,
+    pub name: String,
+    pub device_number: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeveloperTeam {
+    pub name: String,
+    pub team_id: String,
+}
 
 async fn parse_response(
     res: Result<Response, reqwest::Error>,
@@ -786,7 +806,6 @@ impl AppleAccount {
         let app_token = self.get_app_token("com.apple.gs.xcode.auth").await?;
         let valid_anisette = self.get_anisette().await;
 
-        // Prepare headers
         let mut headers = HeaderMap::new();
         headers.insert("Content-Type", HeaderValue::from_static("text/x-xml-plist"));
         headers.insert("Accept", HeaderValue::from_static("text/x-xml-plist"));
@@ -801,7 +820,6 @@ impl AppleAccount {
             HeaderValue::from_str(&app_token.auth_token).unwrap(),
         );
 
-        // Add anisette/device headers
         for (k, v) in valid_anisette.generate_headers(false, true, true) {
             headers.insert(
                 HeaderName::from_bytes(k.as_bytes()).unwrap(),
@@ -809,12 +827,10 @@ impl AppleAccount {
             );
         }
 
-        // Add X-Apple-Locale header
         if let Ok(locale) = valid_anisette.get_header("x-apple-locale") {
             headers.insert("X-Apple-Locale", HeaderValue::from_str(&locale).unwrap());
         }
 
-        // Prepare body if present
         let response = if let Some(body) = body {
             let mut buf = Vec::new();
             plist::to_writer_xml(&mut buf, &body)?;
@@ -834,8 +850,11 @@ impl AppleAccount {
         Ok(response)
     }
 
-    pub async fn list_teams(&self) -> Result<Vec<DeveloperTeam>, Error> {
-        // Build the request dictionary with required fields
+    pub async fn send_developer_request(
+        &self,
+        url: &str,
+        body: Option<plist::Dictionary>,
+    ) -> Result<plist::Dictionary, Error> {
         let mut request = plist::Dictionary::new();
         request.insert(
             "clientId".to_string(),
@@ -849,22 +868,28 @@ impl AppleAccount {
             "requestId".to_string(),
             plist::Value::String(uuid::Uuid::new_v4().to_string().to_uppercase()),
         );
-        // Optionally add userLocale if needed
         request.insert(
             "userLocale".to_string(),
             plist::Value::Array(vec![plist::Value::String("en_US".to_string())]),
         );
+        if let Some(body) = body {
+            for (key, value) in body {
+                request.insert(key, value);
+            }
+        }
 
-        // Call send_request with the developer portal endpoint and request
-        let url = "https://developerservices2.apple.com/services/QH65B2/listTeams.action?clientId=XABBG36SBA";
-        let response = self.send_request(url, Some(request)).await?;
-
+        let response = self.send_request(url, Some(request)).await.map_err(|e| {
+            if let Error::AuthSrpWithMessage(code, message) = e {
+                Error::AuthSrpWithMessage(code, format!("Developer request failed: {}", message))
+            } else {
+                e
+            }
+        })?;
         // Check for error code in response
         let status_code = response
             .get("resultCode")
             .and_then(|v| v.as_unsigned_integer())
             .unwrap_or(0);
-
         if status_code != 0 {
             let description = response
                 .get("userString")
@@ -876,6 +901,12 @@ impl AppleAccount {
                 description.to_string(),
             ));
         }
+        Ok(response)
+    }
+
+    pub async fn list_teams(&self) -> Result<Vec<DeveloperTeam>, Error> {
+        let url = "https://developerservices2.apple.com/services/QH65B2/listTeams.action?clientId=XABBG36SBA";
+        let response = self.send_developer_request(url, None).await?;
 
         // Parse teams array
         let teams = response
@@ -900,11 +931,107 @@ impl AppleAccount {
         }
         Ok(result)
     }
-}
 
-// Add this struct at the bottom of the file or in a suitable place
-#[derive(Debug, Clone)]
-pub struct DeveloperTeam {
-    pub name: String,
-    pub team_id: String,
+    pub async fn list_devices(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+    ) -> Result<Vec<DeveloperDevice>, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}listDevices.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        let response = self.send_developer_request(&url, Some(body)).await?;
+
+        let devices = response
+            .get("devices")
+            .and_then(|v| v.as_array())
+            .ok_or(Error::Parse)?;
+
+        let mut result = Vec::new();
+        for device in devices {
+            let dict = device.as_dictionary().ok_or(Error::Parse)?;
+            let device_id = dict
+                .get("deviceId")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let name = dict
+                .get("name")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let device_number = dict
+                .get("deviceNumber")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            result.push(DeveloperDevice {
+                device_id,
+                name,
+                device_number,
+            });
+        }
+        Ok(result)
+    }
+
+    pub async fn add_device(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        device_name: &str,
+        udid: &str,
+    ) -> Result<DeveloperDevice, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}addDevice.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert(
+            "name".to_string(),
+            plist::Value::String(device_name.to_string()),
+        );
+        body.insert(
+            "deviceNumber".to_string(),
+            plist::Value::String(udid.to_string()),
+        );
+
+        let response = self.send_developer_request(&url, Some(body)).await?;
+
+        let device_dict = response
+            .get("device")
+            .and_then(|v| v.as_dictionary())
+            .ok_or(Error::Parse)?;
+
+        let device_id = device_dict
+            .get("deviceId")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+        let name = device_dict
+            .get("name")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+        let device_number = device_dict
+            .get("deviceNumber")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+
+        Ok(DeveloperDevice {
+            device_id,
+            name,
+            device_number,
+        })
+    }
 }

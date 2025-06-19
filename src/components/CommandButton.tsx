@@ -8,6 +8,7 @@ export interface CommandButtonProps {
   icon: React.ReactNode;
   variant?: "plain" | "outlined" | "soft" | "solid";
   sx?: React.CSSProperties;
+  validate?: () => boolean;
 }
 
 export default function CommandButton({
@@ -17,6 +18,7 @@ export default function CommandButton({
   icon,
   variant,
   sx = {},
+  validate = () => true,
 }: CommandButtonProps) {
   const { isRunningCommand, currentCommand, runCommand, cancelCommand } =
     useCommandRunner();
@@ -34,6 +36,9 @@ export default function CommandButton({
         ...sx,
       }}
       onClick={() => {
+        if (!validate()) {
+          return;
+        }
         if (isRunningCommand) {
           if (currentCommand === command) {
             cancelCommand();

@@ -1,7 +1,10 @@
 pub mod anisette;
 mod client;
 
-pub use client::{AppleAccount, AuthenticationExtras, LoginState, TrustedPhoneNumber, VerifyBody};
+pub use client::{
+    AppleAccount, AuthenticationExtras, DeveloperDeviceType, LoginState, TrustedPhoneNumber,
+    VerifyBody,
+};
 pub use omnisette::AnisetteConfiguration;
 
 use thiserror::Error;
