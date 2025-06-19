@@ -21,18 +21,7 @@ tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
 idevice = { version = "0.1.35", features = ["full"] }
 futures = "0.3.31"
-tungstenite = { version = "0.26.2", features = ["native-tls"] }
-rand = "0.8"
-base64 = "0.21"
 keyring = "2"
-reqwest = { version = "0.11", features = ["json", "blocking", "rustls-tls"] }
-tokio = { version = "1", features = ["full"] }
-sha2 = "0.10"
-uuid = { version = "1", features = ["v4"] }
-hex = "0.4.3"
-plist = "1.7.1"
-chrono = { version = "0.4.40", features = ["serde"] }
-locale_config = "0.3.0"
 icloud_auth = {path = "./apple-private-apis/icloud-auth" }
 
 [features]
