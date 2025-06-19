@@ -19,7 +19,7 @@ tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
-idevice = { version = "0.1.29", features = ["full"] }
+idevice = { version = "0.1.35", features = ["full"] }
 futures = "0.3.31"
 tungstenite = { version = "0.26.2", features = ["native-tls"] }
 rand = "0.8"

@@ -1,3 +1,4 @@
+use chrono::format;
 use icloud_auth::{AnisetteConfiguration, AppleAccount};
 use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection};
 use idevice::{lockdown::LockdownClient, IdeviceService};
@@ -323,7 +324,6 @@ pub async fn deploy_theos(
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     let window_clone = window.clone();
     let appleid_closure = move || -> (String, String) {
-        // Try to get stored credentials first
         if let Some((email, password)) = get_stored_credentials() {
             window_clone
                 .emit(
@@ -455,6 +455,22 @@ pub async fn deploy_theos(
         .emit("build-output", "Logged in successfully!".to_string())
         .map_err(|e| e.to_string())?;
 
+    let teams = account.list_teams().await;
+    if let Err(e) = teams {
+        window
+            .emit("build-output", "Failed to list teams".to_string())
+            .ok();
+        window.emit("build-output", format!("{:?}", e)).ok();
+        window
+            .emit("build-output", "command.done.999".to_string())
+            .ok();
+        return Err(format!("{:?}", e));
+    }
+    let teams = teams.unwrap();
+    window
+        .emit("build-output", format!("Found teams: {:?}", teams))
+        .ok();
+
     Ok(())
 }
 
@@ -485,7 +501,7 @@ pub async fn refresh_idevice(window: tauri::Window) {
         .iter()
         .map(|d| async move {
             // Use current device (d) instead of always using devs[0]
-            let provider = d.to_provider(UsbmuxdAddr::from_env_var().unwrap(), 0, "y-code");
+            let provider = d.to_provider(UsbmuxdAddr::from_env_var().unwrap(), "y-code");
             let device_uid = d.device_id;
 
             let mut lockdown_client = match LockdownClient::connect(&provider).await {
@@ -500,7 +516,7 @@ pub async fn refresh_idevice(window: tauri::Window) {
             };
 
             let device_name = lockdown_client
-                .get_value("DeviceName")
+                .get_value("DeviceName", None)
                 .await
                 .expect("Failed to get device name")
                 .as_string()

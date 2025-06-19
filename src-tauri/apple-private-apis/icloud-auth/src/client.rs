@@ -1,8 +1,6 @@
-use std::str::FromStr;
-
-// use crate::anisette::AnisetteData;
 use crate::{anisette::AnisetteData, Error};
 use aes::cipher::block_padding::Pkcs7;
+use botan::Cipher; // <-- Use Cipher_Mode instead of CipherMode
 use cbc::cipher::{BlockDecryptMut, KeyIvInit};
 use hmac::{Hmac, Mac};
 use omnisette::AnisetteConfiguration;
@@ -11,11 +9,12 @@ use reqwest::{
     Certificate, Client, ClientBuilder, Response,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256}; // Remove Digest import if present
 use srp::{
     client::{SrpClient, SrpClientVerifier},
     groups::G_2048,
 };
+use std::str::FromStr;
 use tokio::sync::Mutex;
 
 const GSA_ENDPOINT: &str = "https://gsa.apple.com/grandslam/GsService2";
@@ -95,7 +94,7 @@ pub struct AppleAccount {
     client: Client,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AppToken {
     pub app_tokens: plist::Dictionary,
     pub auth_token: String,
@@ -191,6 +190,7 @@ impl AppleAccount {
         let client = ClientBuilder::new()
             .add_root_certificate(Certificate::from_der(APPLE_ROOT)?)
             .http1_title_case_headers()
+            .danger_accept_invalid_certs(true)
             .connection_verbose(true)
             .build()?;
 
@@ -220,7 +220,6 @@ impl AppleAccount {
 
     pub async fn get_app_token(&self, app_name: &str) -> Result<AppToken, Error> {
         let spd = self.spd.as_ref().unwrap();
-        // println!("spd: {:#?}", spd);
         let dsid = spd.get("adsid").unwrap().as_string().unwrap();
         let auth_token = spd.get("GsIdmsToken").unwrap().as_string().unwrap();
 
@@ -228,11 +227,6 @@ impl AppleAccount {
 
         let sk = spd.get("sk").unwrap().as_data().unwrap();
         let c = spd.get("c").unwrap().as_data().unwrap();
-        println!("adsid: {}", dsid);
-        println!("GsIdmsToken: {}", auth_token);
-        // println!("spd: {:#?}", spd);
-        println!("sk: {:#?}", sk);
-        println!("c: {:#?}", c);
 
         let checksum = Self::create_checksum(&sk.to_vec(), dsid, app_name);
 
@@ -273,9 +267,6 @@ impl AppleAccount {
         plist::to_writer_xml(&mut buffer, &packet)?;
         let buffer = String::from_utf8(buffer).unwrap();
 
-        println!("{:?}", gsa_headers.clone());
-        println!("{:?}", buffer);
-
         let res = self
             .client
             .post(GSA_ENDPOINT)
@@ -288,8 +279,69 @@ impl AppleAccount {
         if err_check.is_err() {
             return Err(err_check.err().unwrap());
         }
-        println!("{:?}", res);
-        todo!()
+
+        // --- D code logic starts here ---
+        let encrypted_token = res
+            .get("et")
+            .ok_or(Error::Parse)?
+            .as_data()
+            .ok_or(Error::Parse)?;
+
+        if encrypted_token.len() < 3 + 16 + 16 {
+            return Err(Error::Parse);
+        }
+        let header = &encrypted_token[0..3];
+        if header != b"XYZ" {
+            return Err(Error::AuthSrpWithMessage(
+                0,
+                "Encrypted token is in an unknown format.".to_string(),
+            ));
+        }
+        let iv = &encrypted_token[3..19]; // 16 bytes
+        let ciphertext_and_tag = &encrypted_token[19..];
+
+        if sk.len() != 32 {
+            return Err(Error::Parse);
+        }
+        if iv.len() != 16 {
+            return Err(Error::Parse);
+        }
+
+        // Botan AES-256/GCM decryption with 16-byte IV and 3-byte AAD
+        // true = encrypt, false = decrypt
+        let mut cipher = Cipher::new("AES-256/GCM", botan::CipherDirection::Decrypt)
+            .map_err(|_| Error::Parse)?;
+        cipher.set_key(sk).map_err(|_| Error::Parse)?;
+        cipher
+            .set_associated_data(header)
+            .map_err(|_| Error::Parse)?;
+        cipher.start(iv).map_err(|_| Error::Parse)?;
+
+        let mut buf = ciphertext_and_tag.to_vec();
+        buf = cipher.finish(&mut buf).map_err(|_| {
+            Error::AuthSrpWithMessage(
+                0,
+                "Failed to decrypt app token (Botan AES-256/GCM).".to_string(),
+            )
+        })?;
+
+        let decrypted_token: plist::Dictionary =
+            plist::from_bytes(&buf).map_err(|_| Error::Parse)?;
+
+        let t_val = decrypted_token.get("t").ok_or(Error::Parse)?;
+        let app_tokens = t_val.as_dictionary().ok_or(Error::Parse)?;
+        let app_token_dict = app_tokens.get(app_name).ok_or(Error::Parse)?;
+        let app_token = app_token_dict.as_dictionary().ok_or(Error::Parse)?;
+        let token = app_token
+            .get("token")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?;
+
+        Ok(AppToken {
+            app_tokens: app_tokens.clone(),
+            auth_token: token.to_string(),
+            app: app_name.to_string(),
+        })
     }
 
     fn create_checksum(session_key: &Vec<u8>, dsid: &str, app_name: &str) -> Vec<u8> {
@@ -465,9 +517,7 @@ impl AppleAccount {
         let iters = res.get("i").unwrap().as_signed_integer().unwrap();
         let c = res.get("c").unwrap().as_string().unwrap();
 
-        let mut password_hasher = sha2::Sha256::new();
-        password_hasher.update(&password.as_bytes());
-        let hashed_password = password_hasher.finalize();
+        let hashed_password = Sha256::digest(password.as_bytes());
 
         let mut password_buf = [0u8; 32];
         pbkdf2::pbkdf2::<hmac::Hmac<Sha256>>(
@@ -726,4 +776,135 @@ impl AppleAccount {
 
         headers
     }
+
+    pub async fn send_request(
+        &self,
+        url: &str,
+        body: Option<plist::Dictionary>,
+    ) -> Result<plist::Dictionary, Error> {
+        let spd = self.spd.as_ref().unwrap();
+        let app_token = self.get_app_token("com.apple.gs.xcode.auth").await?;
+        let valid_anisette = self.get_anisette().await;
+
+        // Prepare headers
+        let mut headers = HeaderMap::new();
+        headers.insert("Content-Type", HeaderValue::from_static("text/x-xml-plist"));
+        headers.insert("Accept", HeaderValue::from_static("text/x-xml-plist"));
+        headers.insert("Accept-Language", HeaderValue::from_static("en-us"));
+        headers.insert("User-Agent", HeaderValue::from_static("Xcode"));
+        headers.insert(
+            "X-Apple-I-Identity-Id",
+            HeaderValue::from_str(spd.get("adsid").unwrap().as_string().unwrap()).unwrap(),
+        );
+        headers.insert(
+            "X-Apple-GS-Token",
+            HeaderValue::from_str(&app_token.auth_token).unwrap(),
+        );
+
+        // Add anisette/device headers
+        for (k, v) in valid_anisette.generate_headers(false, true, true) {
+            headers.insert(
+                HeaderName::from_bytes(k.as_bytes()).unwrap(),
+                HeaderValue::from_str(&v).unwrap(),
+            );
+        }
+
+        // Add X-Apple-Locale header
+        if let Ok(locale) = valid_anisette.get_header("x-apple-locale") {
+            headers.insert("X-Apple-Locale", HeaderValue::from_str(&locale).unwrap());
+        }
+
+        // Prepare body if present
+        let response = if let Some(body) = body {
+            let mut buf = Vec::new();
+            plist::to_writer_xml(&mut buf, &body)?;
+            self.client
+                .post(url)
+                .headers(headers)
+                .body(buf)
+                .send()
+                .await?
+        } else {
+            self.client.get(url).headers(headers).send().await?
+        };
+
+        let response = response.text().await?;
+
+        let response: plist::Dictionary = plist::from_bytes(response.as_bytes())?;
+        Ok(response)
+    }
+
+    pub async fn list_teams(&self) -> Result<Vec<DeveloperTeam>, Error> {
+        // Build the request dictionary with required fields
+        let mut request = plist::Dictionary::new();
+        request.insert(
+            "clientId".to_string(),
+            plist::Value::String("XABBG36SBA".to_string()),
+        );
+        request.insert(
+            "protocolVersion".to_string(),
+            plist::Value::String("QH65B2".to_string()),
+        );
+        request.insert(
+            "requestId".to_string(),
+            plist::Value::String(uuid::Uuid::new_v4().to_string().to_uppercase()),
+        );
+        // Optionally add userLocale if needed
+        request.insert(
+            "userLocale".to_string(),
+            plist::Value::Array(vec![plist::Value::String("en_US".to_string())]),
+        );
+
+        // Call send_request with the developer portal endpoint and request
+        let url = "https://developerservices2.apple.com/services/QH65B2/listTeams.action?clientId=XABBG36SBA";
+        let response = self.send_request(url, Some(request)).await?;
+
+        // Check for error code in response
+        let status_code = response
+            .get("resultCode")
+            .and_then(|v| v.as_unsigned_integer())
+            .unwrap_or(0);
+
+        if status_code != 0 {
+            let description = response
+                .get("userString")
+                .and_then(|v| v.as_string())
+                .or_else(|| response.get("resultString").and_then(|v| v.as_string()))
+                .unwrap_or("(null)");
+            return Err(Error::AuthSrpWithMessage(
+                status_code as i64,
+                description.to_string(),
+            ));
+        }
+
+        // Parse teams array
+        let teams = response
+            .get("teams")
+            .and_then(|v| v.as_array())
+            .ok_or(Error::Parse)?;
+
+        let mut result = Vec::new();
+        for team in teams {
+            let dict = team.as_dictionary().ok_or(Error::Parse)?;
+            let name = dict
+                .get("name")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let team_id = dict
+                .get("teamId")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            result.push(DeveloperTeam { name, team_id });
+        }
+        Ok(result)
+    }
+}
+
+// Add this struct at the bottom of the file or in a suitable place
+#[derive(Debug, Clone)]
+pub struct DeveloperTeam {
+    pub name: String,
+    pub team_id: String,
 }
