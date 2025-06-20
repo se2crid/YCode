@@ -7244,6 +7244,7 @@ dependencies = [
  "icloud_auth",
  "idevice",
  "keyring",
+ "once_cell",
  "serde",
  "serde_json",
  "tauri",

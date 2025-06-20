@@ -1,6 +1,7 @@
 import { Button, Input, Option, Select, Typography } from "@mui/joy";
 import { PrefSetting } from "./Prefs";
 import { useStore } from "../utilities/StoreContext";
+import { useEffect, useState } from "react";
 
 export interface PrefParams {
   setting: PrefSetting;
@@ -9,6 +10,23 @@ export interface PrefParams {
 }
 
 export default ({ setting, pageName, storeExists }: PrefParams) => {
+  if (setting.type === "info" && typeof setting.defaultValue === "function") {
+    const [info, setInfo] = useState("");
+
+    useEffect(() => {
+      const fetchInfo = async () => {
+        const result = await setting.defaultValue();
+        setInfo(result);
+      };
+      fetchInfo();
+    }, [setting.defaultValue]);
+
+    return (
+      <Typography level="body-md" className="prefs-setting">
+        {setting.name}: {info}
+      </Typography>
+    );
+  }
   const [value, setValue] = useStore(
     (pageName + "/" + setting.name).toLowerCase(),
     setting.defaultValue || ""
@@ -72,10 +90,18 @@ export default ({ setting, pageName, storeExists }: PrefParams) => {
               setting.onChange("");
             }
           }}
-          sx={{ marginBottom: "var(--padding-md)" }}
+          sx={{ marginTop: "var(--padding-md)" }}
         >
           {setting.name}
         </Button>
+      )}
+      {setting.type === "info" && (
+        <Typography
+          level="body-sm"
+          sx={{ color: "var(--joy-palette-neutral-500)" }}
+        >
+          {value}
+        </Typography>
       )}
     </div>
   );

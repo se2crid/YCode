@@ -11,7 +11,7 @@ import { invoke } from "@tauri-apps/api/core";
 export type PrefSetting = {
   name: string;
   description: string;
-  type: "text" | "select" | "checkbox" | "button";
+  type: "text" | "select" | "checkbox" | "button" | "info";
   options?: Array<{ label: string; value: string }>;
   defaultValue?: any;
   onChange?: (value: any) => void;
@@ -60,6 +60,15 @@ const prefs: PrefPage[][] = [
             { label: "Sidestore (.app)", value: "ani.sidestore.app" },
           ],
           defaultValue: "ani.sidestore.io",
+        },
+        {
+          name: "Apple ID",
+          description: "The apple ID email you are currently logged in with.",
+          type: "info",
+          defaultValue: async () => {
+            const appleId = await invoke<string>("get_apple_email");
+            return appleId || "Not logged in";
+          },
         },
         {
           name: "Reset Anisette",

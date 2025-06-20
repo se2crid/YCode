@@ -3,8 +3,12 @@
 
 #[macro_use]
 mod commands;
+mod apple;
+mod device;
+mod theos;
 
 use commands::*;
+use tauri::Emitter;
 
 fn main() {
     tauri::Builder::default()
@@ -24,8 +28,15 @@ fn main() {
             deploy_theos,
             refresh_idevice,
             delete_stored_credentials,
-            reset_anisette
+            reset_anisette,
+            get_apple_email,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+pub fn emit_error_and_return(window: &tauri::Window, msg: &str) -> Result<(), String> {
+    window.emit("build-output", msg.to_string()).ok();
+    window.emit("build-output", "command.done.999").ok();
+    Err(msg.to_string())
 }
