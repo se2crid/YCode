@@ -104,6 +104,21 @@ pub async fn deploy_theos(
         .emit("build-output", "Successfully retrieved team".to_string())
         .ok();
     ensure_device_registered(&account, &window, team, &device).await?;
+
+    let certs = account
+        .list_all_development_certs(icloud_auth::DeveloperDeviceType::Ios, team)
+        .await;
+    if certs.is_err() {
+        return emit_error_and_return(
+            &window,
+            &format!("Failed to list certificates: {:?}", certs.err()),
+        );
+    }
+    let certs = certs.unwrap();
+    print!("Available certificates:\n");
+    for cert in &certs {
+        println!("{}: {}", cert.name, cert.serial_number);
+    }
     Ok(())
 }
 

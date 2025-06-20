@@ -1,6 +1,6 @@
 # YCode
 
-iOS Development IDE for linux and windows, build with [Tauri](https://tauri.app/).
+iOS Development IDE for linux and windows, built with [Tauri](https://tauri.app/).
 
 Coming soon...
 

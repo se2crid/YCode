@@ -188,6 +188,15 @@ pub struct DeveloperTeam {
     pub team_id: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct DevelopmentCertificate {
+    pub name: String,
+    pub certificate_id: String,
+    pub serial_number: String,
+    pub machine_name: String,
+    pub cert_content: Vec<u8>,
+}
+
 async fn parse_response(
     res: Result<Response, reqwest::Error>,
 ) -> Result<plist::Dictionary, crate::Error> {
@@ -1032,5 +1041,133 @@ impl AppleAccount {
             name,
             device_number,
         })
+    }
+
+    pub async fn list_all_development_certs(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+    ) -> Result<Vec<DevelopmentCertificate>, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}listAllDevelopmentCerts.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+
+        let response = self.send_developer_request(&url, Some(body)).await?;
+
+        let certs = response
+            .get("certificates")
+            .and_then(|v| v.as_array())
+            .ok_or(Error::Parse)?;
+
+        let mut result = Vec::new();
+        for cert in certs {
+            let dict = cert.as_dictionary().ok_or(Error::Parse)?;
+            let name = dict
+                .get("name")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let certificate_id = dict
+                .get("certificateId")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let serial_number = dict
+                .get("serialNumber")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let machine_name = dict
+                .get("machineName")
+                .and_then(|v| v.as_string())
+                .unwrap_or("")
+                .to_string();
+            let cert_content = dict
+                .get("certContent")
+                .and_then(|v| v.as_data())
+                .ok_or(Error::Parse)?
+                .to_vec();
+
+            result.push(DevelopmentCertificate {
+                name,
+                certificate_id,
+                serial_number,
+                machine_name: machine_name,
+                cert_content,
+            });
+        }
+        Ok(result)
+    }
+
+    pub async fn revoke_development_cert(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        serial_number: &str,
+    ) -> Result<(), Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}revokeDevelopmentCert.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert(
+            "serialNumber".to_string(),
+            plist::Value::String(serial_number.to_string()),
+        );
+
+        self.send_developer_request(&url, Some(body)).await?;
+        Ok(())
+    }
+
+    pub async fn submit_development_csr(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        csr_content: &[u8],
+    ) -> Result<String, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}submitDevelopmentCsr.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert(
+            "csrContent".to_string(),
+            plist::Value::Data(csr_content.to_vec()),
+        );
+        body.insert(
+            "machineId".to_string(),
+            plist::Value::String(uuid::Uuid::new_v4().to_string().to_uppercase()),
+        );
+        body.insert(
+            "machineName".to_string(),
+            plist::Value::String("YCode".to_string()),
+        );
+
+        let response = self.send_developer_request(&url, Some(body)).await?;
+        let cert_dict = response
+            .get("certRequest")
+            .and_then(|v| v.as_dictionary())
+            .ok_or(Error::Parse)?;
+        let id = cert_dict
+            .get("certRequestId")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+
+        Ok(id)
     }
 }

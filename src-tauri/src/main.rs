@@ -4,6 +4,7 @@
 #[macro_use]
 mod commands;
 mod apple;
+mod certificate;
 mod device;
 mod theos;
 

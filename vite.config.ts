@@ -14,12 +14,6 @@ const plugins = [
   react(),
   monacoEditorPluginDefault({
     languageWorkers: ["json", "editorWorkerService"],
-    customWorkers: [
-      {
-        label: "graphql",
-        entry: "monaco-graphql/dist/graphql.worker",
-      },
-    ],
   }),
 ];
 
