@@ -1,6 +1,6 @@
 # YCode
 
-iOS Development IDE for linux
+iOS Development IDE for linux and windows, build with [Tauri](https://tauri.app/).
 
 Coming soon...
 
@@ -33,3 +33,8 @@ Coming soon...
 - [ ] Project Templates
 - [ ] Swift LSP Support
 - [ ] UI to change makefile settings
+
+## What AI did
+
+- Generated the logo
+- Helped port some code from [Sideloader](https://github.com/Dadoum/Sideloader)
