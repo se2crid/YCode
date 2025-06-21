@@ -230,6 +230,7 @@ pub async fn ensure_device_registered(
                 "Device not found in your account".to_string(),
             )
             .ok();
+        // TODO: Actually test!
         account
             .add_device(DeveloperDeviceType::Ios, team, &device.name, &device.uuid)
             .await

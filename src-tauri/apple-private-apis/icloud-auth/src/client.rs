@@ -2,8 +2,10 @@ use crate::{anisette::AnisetteData, Error};
 use aes::cipher::block_padding::Pkcs7;
 use botan::Cipher;
 use cbc::cipher::{BlockDecryptMut, KeyIvInit};
+use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use omnisette::AnisetteConfiguration;
+use plist::{Date, Value};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Certificate, Client, ClientBuilder, Response,
@@ -195,6 +197,22 @@ pub struct DevelopmentCertificate {
     pub serial_number: String,
     pub machine_name: String,
     pub cert_content: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AppId {
+    pub app_id_id: String,
+    pub identifier: String,
+    pub name: String,
+    pub features: plist::Dictionary,
+    pub expiration_date: Date,
+}
+
+#[derive(Debug, Clone)]
+pub struct ListAppIdsResponse {
+    pub app_ids: Vec<AppId>,
+    pub max_quantity: u64,
+    pub available_quantity: u64,
 }
 
 async fn parse_response(
@@ -1168,5 +1186,80 @@ impl AppleAccount {
             .to_string();
 
         Ok(id)
+    }
+
+    pub async fn list_app_ids(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+    ) -> Result<ListAppIdsResponse, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}listAppIds.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+
+        let response = self.send_developer_request(&url, Some(body)).await?;
+
+        let app_ids = response
+            .get("appIds")
+            .and_then(|v| v.as_array())
+            .ok_or(Error::Parse)?;
+
+        let mut result = Vec::new();
+        for app_id in app_ids {
+            let dict = app_id.as_dictionary().ok_or(Error::Parse)?;
+            let name = dict
+                .get("name")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let app_id_id = dict
+                .get("appIdId")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let identifier = dict
+                .get("identifier")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let features = dict
+                .get("features")
+                .and_then(|v| v.as_dictionary())
+                .ok_or(Error::Parse)?;
+            // TODO: expirationDate may be missing (probably used for paid dev accounts)
+            let expiration_date = dict
+                .get("expirationDate")
+                .and_then(|v| v.as_date())
+                .ok_or(Error::Parse)?;
+
+            result.push(AppId {
+                name,
+                app_id_id,
+                identifier,
+                features: features.clone(),
+                expiration_date,
+            });
+        }
+
+        let max_quantity = response
+            .get("maxQuantity")
+            .and_then(|v| v.as_unsigned_integer())
+            .ok_or(Error::Parse)?;
+        let available_quantity = response
+            .get("availableQuantity")
+            .and_then(|v| v.as_unsigned_integer())
+            .ok_or(Error::Parse)?;
+
+        Ok(ListAppIdsResponse {
+            app_ids: result,
+            max_quantity,
+            available_quantity,
+        })
     }
 }

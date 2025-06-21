@@ -2,7 +2,7 @@ pub mod anisette;
 mod client;
 
 pub use client::{
-    AppleAccount, AuthenticationExtras, DeveloperDevice, DeveloperDeviceType, DeveloperTeam,
+    AppId, AppleAccount, AuthenticationExtras, DeveloperDevice, DeveloperDeviceType, DeveloperTeam,
     LoginState, TrustedPhoneNumber, VerifyBody,
 };
 pub use omnisette::AnisetteConfiguration;

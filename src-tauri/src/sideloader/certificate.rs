@@ -19,7 +19,7 @@ pub struct CertificateIdentity {
 impl CertificateIdentity {
     pub async fn new(
         configuration_path: PathBuf,
-        apple_account: Arc<AppleAccount>,
+        apple_account: &Arc<AppleAccount>,
         apple_id: String,
     ) -> Result<Self, String> {
         let mut hasher = Sha1::new();
@@ -35,8 +35,6 @@ impl CertificateIdentity {
             .await
             .map_err(|e| format!("Failed to list teams: {:?}", e))?;
         let team = teams.first().ok_or("No teams found")?;
-
-        // Load or generate private key
         let private_key = if key_file.exists() {
             let key_data = fs::read_to_string(&key_file)
                 .map_err(|e| format!("Failed to read key file: {}", e))?;
@@ -61,7 +59,6 @@ impl CertificateIdentity {
             key_file,
         };
 
-        // Try to find matching certificate
         if let Ok(cert) = cert_identity
             .find_matching_certificate(&apple_account, team)
             .await
@@ -70,7 +67,6 @@ impl CertificateIdentity {
             return Ok(cert_identity);
         }
 
-        // Create new certificate
         cert_identity
             .request_new_certificate(&apple_account, team)
             .await?;
@@ -114,7 +110,6 @@ impl CertificateIdentity {
         apple_account: &AppleAccount,
         team: &DeveloperTeam,
     ) -> Result<(), String> {
-        // Create certificate request
         let mut req_builder = X509ReqBuilder::new()
             .map_err(|e| format!("Failed to create request builder: {}", e))?;
         let mut name_builder =

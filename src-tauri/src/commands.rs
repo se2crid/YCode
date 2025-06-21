@@ -1,7 +1,7 @@
-use crate::apple::ensure_device_registered;
-use crate::certificate::CertificateIdentity;
 use crate::device::DeviceInfo;
 use crate::emit_error_and_return;
+use crate::sideloader::apple::ensure_device_registered;
+use crate::sideloader::certificate::CertificateIdentity;
 use crate::theos::{build_theos_linux, build_theos_windows, pipe_command};
 use std::process::Command;
 use tauri::{Emitter, Manager};
@@ -61,12 +61,12 @@ pub async fn build_theos(window: tauri::Window, folder: String) {
 
 #[tauri::command]
 pub fn delete_stored_credentials() -> Result<(), String> {
-    crate::apple::delete_stored_credentials()
+    crate::sideloader::apple::delete_stored_credentials()
 }
 
 #[tauri::command]
 pub fn get_apple_email() -> String {
-    let credentials = crate::apple::get_stored_credentials();
+    let credentials = crate::sideloader::apple::get_stored_credentials();
     if credentials.is_none() {
         return "".to_string();
     }
@@ -80,20 +80,21 @@ pub async fn deploy_theos(
     window: tauri::Window,
     anisette_server: String,
     device: DeviceInfo,
-    _folder: String,
+    folder: String,
 ) -> Result<(), String> {
     if device.uuid.is_empty() {
         return emit_error_and_return(&window, "No device selected");
     }
-    let account = match crate::apple::get_account(&handle, &window, anisette_server).await {
-        Ok(acc) => acc,
-        Err(e) => {
-            return emit_error_and_return(
-                &window,
-                &format!("Failed to login to Apple account: {:?}", e),
-            );
-        }
-    };
+    let account =
+        match crate::sideloader::apple::get_account(&handle, &window, anisette_server).await {
+            Ok(acc) => acc,
+            Err(e) => {
+                return emit_error_and_return(
+                    &window,
+                    &format!("Failed to login to Apple account: {:?}", e),
+                );
+            }
+        };
     let teams = match account.list_teams().await {
         Ok(t) => t,
         Err(e) => {
@@ -121,12 +122,76 @@ pub async fn deploy_theos(
         println!("{}: {}", cert.name, cert.serial_number);
     }
     let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
-    let cert = CertificateIdentity::new(config_dir, account, get_apple_email())
+    let cert = match CertificateIdentity::new(config_dir, &account, get_apple_email()).await {
+        Ok(c) => c,
+        Err(e) => {
+            return emit_error_and_return(&window, &format!("Failed to get certificate: {:?}", e));
+        }
+    };
+    window
+        .emit(
+            "build-output",
+            "Certificate acquired succesfully".to_string(),
+        )
+        .ok();
+    let app_ids = match account
+        .list_app_ids(icloud_auth::DeveloperDeviceType::Ios, team)
         .await
-        .map_err(|e| {
-            emit_error_and_return(&window, &format!("Failed to create certificate: {}", e))
-        });
-    println!("Certificate created successfully: {:?}", cert);
+    {
+        Ok(ids) => ids,
+        Err(e) => {
+            return emit_error_and_return(&window, &format!("Failed to list app IDs: {:?}", e));
+        }
+    };
+    let packages_path = std::path::PathBuf::from(&folder).join("packages");
+
+    let ipa_path = std::fs::read_dir(&packages_path)
+        .unwrap()
+        .filter_map(Result::ok)
+        .find(|entry| entry.path().extension().map_or(false, |ext| ext == "ipa"))
+        .map(|entry| entry.path());
+    if ipa_path.is_none() {
+        return emit_error_and_return(&window, "No IPA file found in packages directory");
+    }
+    let ipa_path = ipa_path.unwrap();
+    let mut app = crate::sideloader::application::Application::new(ipa_path);
+    let main_app_bundle_id = match app.bundle.bundle_identifier() {
+        Some(id) => id.to_string(),
+        None => {
+            return emit_error_and_return(&window, "No bundle identifier found in IPA");
+        }
+    };
+    let main_app_id_str = format!("{}.{}", main_app_bundle_id, team.team_id);
+    let main_app_name = match app.bundle.bundle_name() {
+        Some(name) => name.to_string(),
+        None => {
+            return emit_error_and_return(&window, "No bundle name found in IPA");
+        }
+    };
+
+    let extensions = app.bundle.app_extensions_mut();
+    // for each extension, ensure it has a unique bundle identifier that starts with the main app's bundle identifier
+    for ext in extensions {
+        if let Some(id) = ext.bundle_identifier() {
+            if !(id.starts_with(&main_app_bundle_id) && id.len() > main_app_bundle_id.len()) {
+                return emit_error_and_return(
+                    &window,
+                    &format!(
+                        "Extension {} is not part of the main app bundle identifier: {}",
+                        ext.bundle_name().unwrap_or("Unknown"),
+                        id
+                    ),
+                );
+            } else {
+                ext.set_bundle_identifier(&format!(
+                    "{}{}",
+                    main_app_id_str,
+                    &id[main_app_bundle_id.len()..]
+                ));
+            }
+        }
+    }
+
     Ok(())
 }
 
