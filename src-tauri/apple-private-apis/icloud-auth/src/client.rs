@@ -218,6 +218,8 @@ impl AppleAccount {
     pub fn new_with_anisette(anisette: AnisetteData) -> Result<Self, crate::Error> {
         let client = ClientBuilder::new()
             .add_root_certificate(Certificate::from_der(APPLE_ROOT)?)
+            // uncomment when debugging w/ charles proxy
+            //            .danger_accept_invalid_certs(true)
             .http1_title_case_headers()
             .connection_verbose(true)
             .build()?;
@@ -1133,10 +1135,10 @@ impl AppleAccount {
         &self,
         device_type: DeveloperDeviceType,
         team: &DeveloperTeam,
-        csr_content: &[u8],
+        csr_content: String,
     ) -> Result<String, Error> {
         let url = format!(
-            "https://developerservices2.apple.com/services/QH65B2/{}submitDevelopmentCsr.action?clientId=XABBG36SBA",
+            "https://developerservices2.apple.com/services/QH65B2/{}submitDevelopmentCSR.action?clientId=XABBG36SBA",
             device_type.url_segment()
         );
         let mut body = plist::Dictionary::new();
@@ -1144,10 +1146,7 @@ impl AppleAccount {
             "teamId".to_string(),
             plist::Value::String(team.team_id.clone()),
         );
-        body.insert(
-            "csrContent".to_string(),
-            plist::Value::Data(csr_content.to_vec()),
-        );
+        body.insert("csrContent".to_string(), plist::Value::String(csr_content));
         body.insert(
             "machineId".to_string(),
             plist::Value::String(uuid::Uuid::new_v4().to_string().to_uppercase()),

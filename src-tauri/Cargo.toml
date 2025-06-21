@@ -24,10 +24,9 @@ futures = "0.3.31"
 keyring = "2"
 icloud_auth = {path = "./apple-private-apis/icloud-auth" }
 once_cell = "1.21.3"
-botan = "0.11.1"
 sha1 = "0.10.6"
 hex = "0.4.3"
-anyhow = "1.0.98"
+openssl = "0.10"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

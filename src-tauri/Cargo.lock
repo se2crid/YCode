@@ -568,16 +568,7 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "350081af1a3c6883f8a1f863ac553bfe6922589aad60008a70947765ed57c53e"
 dependencies = [
- "botan-sys 0.10.5",
-]
-
-[[package]]
-name = "botan"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24d4c7647d67c53194fa0740404c6c508880aef2bfe99a9868dbb4b86f090377"
-dependencies = [
- "botan-sys 0.11.1",
+ "botan-sys",
 ]
 
 [[package]]
@@ -585,12 +576,6 @@ name = "botan-sys"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f49dde1b8ebd2996cc41c55c39f6ef8b54e38148d8973aeba0792b87b1621ca"
-
-[[package]]
-name = "botan-sys"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04285fa0c094cc9961fe435b1b279183db9394844ad82ce483aa6196c0e6da38"
 
 [[package]]
 name = "brotli"
@@ -2315,7 +2300,7 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "base64 0.13.1",
- "botan 0.10.7",
+ "botan",
  "cbc",
  "hmac",
  "num-bigint",
@@ -7255,14 +7240,13 @@ dependencies = [
 name = "y-code"
 version = "0.0.1"
 dependencies = [
- "anyhow",
- "botan 0.11.1",
  "futures",
  "hex",
  "icloud_auth",
  "idevice",
  "keyring",
  "once_cell",
+ "openssl",
  "serde",
  "serde_json",
  "sha1",

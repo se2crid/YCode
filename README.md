@@ -20,7 +20,7 @@ Coming soon...
 - [x] Login to Apple Account
 - [x] Create lockdown connection with device (retrives name)
 - [x] Register Device as a development devices
-- [ ] Create/Save Certificate for YCode
+- [x] Create/Save Certificate for YCode
 - [ ] Create an App ID for the app
 - [ ] Create & manage an application group for the app
 - [ ] Sign the app

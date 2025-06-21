@@ -1,4 +1,5 @@
 use crate::apple::ensure_device_registered;
+use crate::certificate::CertificateIdentity;
 use crate::device::DeviceInfo;
 use crate::emit_error_and_return;
 use crate::theos::{build_theos_linux, build_theos_windows, pipe_command};
@@ -119,6 +120,13 @@ pub async fn deploy_theos(
     for cert in &certs {
         println!("{}: {}", cert.name, cert.serial_number);
     }
+    let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
+    let cert = CertificateIdentity::new(config_dir, account, get_apple_email())
+        .await
+        .map_err(|e| {
+            emit_error_and_return(&window, &format!("Failed to create certificate: {}", e))
+        });
+    println!("Certificate created successfully: {:?}", cert);
     Ok(())
 }
 
