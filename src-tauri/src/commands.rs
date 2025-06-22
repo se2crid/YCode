@@ -3,6 +3,7 @@ use crate::emit_error_and_return;
 use crate::sideloader::apple::ensure_device_registered;
 use crate::sideloader::certificate::CertificateIdentity;
 use crate::theos::{build_theos_linux, build_theos_windows, pipe_command};
+use icloud_auth::DeveloperDeviceType;
 use std::process::Command;
 use tauri::{Emitter, Manager};
 
@@ -171,7 +172,7 @@ pub async fn deploy_theos(
 
     let extensions = app.bundle.app_extensions_mut();
     // for each extension, ensure it has a unique bundle identifier that starts with the main app's bundle identifier
-    for ext in extensions {
+    for ext in extensions.iter_mut() {
         if let Some(id) = ext.bundle_identifier() {
             if !(id.starts_with(&main_app_bundle_id) && id.len() > main_app_bundle_id.len()) {
                 return emit_error_and_return(
@@ -189,6 +190,44 @@ pub async fn deploy_theos(
                     &id[main_app_bundle_id.len()..]
                 ));
             }
+        }
+    }
+    app.bundle.set_bundle_identifier(&main_app_id_str);
+
+    let extension_refs: Vec<_> = app.bundle.app_extensions().into_iter().collect();
+    let mut bundles_with_app_id = vec![&app.bundle];
+    bundles_with_app_id.extend(extension_refs);
+
+    let app_ids_to_register = bundles_with_app_id
+        .iter()
+        .filter(|bundle| {
+            let bundle_id = bundle.bundle_identifier().unwrap_or("");
+            app_ids
+                .app_ids
+                .iter()
+                .any(|app_id| app_id.app_id_id == bundle_id)
+        })
+        .collect::<Vec<_>>();
+
+    if app_ids_to_register.len() > app_ids.available_quantity.try_into().unwrap() {
+        return emit_error_and_return(
+            &window,
+            &format!(
+                "This app requires {} app ids, but you only have {} available",
+                app_ids_to_register.len(),
+                app_ids.available_quantity
+            ),
+        );
+    }
+
+    for bundle in app_ids_to_register {
+        let id = bundle.bundle_identifier().unwrap_or("");
+        let name = bundle.bundle_name().unwrap_or("");
+        if let Err(e) = account
+            .add_app_id(DeveloperDeviceType::Ios, &team, &id, &name)
+            .await
+        {
+            return emit_error_and_return(&window, &format!("Failed to register app ID: {:?}", e));
         }
     }
 

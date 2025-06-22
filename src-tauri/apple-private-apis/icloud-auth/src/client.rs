@@ -2,10 +2,9 @@ use crate::{anisette::AnisetteData, Error};
 use aes::cipher::block_padding::Pkcs7;
 use botan::Cipher;
 use cbc::cipher::{BlockDecryptMut, KeyIvInit};
-use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use omnisette::AnisetteConfiguration;
-use plist::{Date, Value};
+use plist::Date;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Certificate, Client, ClientBuilder, Response,
@@ -213,6 +212,20 @@ pub struct ListAppIdsResponse {
     pub app_ids: Vec<AppId>,
     pub max_quantity: u64,
     pub available_quantity: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ApplicationGroup {
+    pub application_group: String,
+    pub name: String,
+    pub identifier: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProvisioningProfile {
+    pub provisioning_profile_id: String,
+    pub name: String,
+    pub encoded_profile: Vec<u8>,
 }
 
 async fn parse_response(
@@ -1260,6 +1273,275 @@ impl AppleAccount {
             app_ids: result,
             max_quantity,
             available_quantity,
+        })
+    }
+
+    pub async fn add_app_id(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        name: &str,
+        identifier: &str,
+    ) -> Result<(), Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}addAppId.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert("name".to_string(), plist::Value::String(name.to_string()));
+        body.insert(
+            "identifier".to_string(),
+            plist::Value::String(identifier.to_string()),
+        );
+
+        self.send_developer_request(&url, Some(body)).await?;
+
+        Ok(())
+    }
+
+    pub async fn update_app_id(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        app_id: &AppId,
+        features: &plist::Dictionary,
+    ) -> Result<plist::Dictionary, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}updateAppId.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert(
+            "appIdId".to_string(),
+            plist::Value::String(app_id.identifier.clone()),
+        );
+        for (key, value) in features {
+            body.insert(key.clone(), value.clone());
+        }
+
+        let response = self.send_developer_request(&url, Some(body)).await?;
+        let cert_dict = response
+            .get("appId")
+            .and_then(|v| v.as_dictionary())
+            .ok_or(Error::Parse)?;
+        let feats = cert_dict
+            .get("features")
+            .and_then(|v| v.as_dictionary())
+            .ok_or(Error::Parse)?;
+
+        Ok(feats.clone())
+    }
+
+    pub async fn delete_app_id(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        app_id: &AppId,
+    ) -> Result<(), Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}deleteAppId.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert(
+            "appIdId".to_string(),
+            plist::Value::String(app_id.app_id_id.clone()),
+        );
+
+        self.send_developer_request(&url, Some(body)).await?;
+
+        Ok(())
+    }
+
+    pub async fn list_application_groups(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+    ) -> Result<Vec<ApplicationGroup>, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}listApplicationGroups.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+
+        let response = self.send_developer_request(&url, Some(body)).await?;
+
+        let app_groups = response
+            .get("applicationGroupList")
+            .and_then(|v| v.as_array())
+            .ok_or(Error::Parse)?;
+
+        let mut result = Vec::new();
+        for app_group in app_groups {
+            let dict = app_group.as_dictionary().ok_or(Error::Parse)?;
+            let application_group = dict
+                .get("applicationGroup")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let name = dict
+                .get("name")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+            let identifier = dict
+                .get("identifier")
+                .and_then(|v| v.as_string())
+                .ok_or(Error::Parse)?
+                .to_string();
+
+            result.push(ApplicationGroup {
+                application_group,
+                name,
+                identifier,
+            });
+        }
+
+        Ok(result)
+    }
+
+    pub async fn add_application_group(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        group_identifier: &str,
+        name: &str,
+    ) -> Result<ApplicationGroup, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}addApplicationGroup.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert("name".to_string(), plist::Value::String(name.to_string()));
+        body.insert(
+            "identifier".to_string(),
+            plist::Value::String(group_identifier.to_string()),
+        );
+
+        let response = self.send_developer_request(&url, Some(body)).await?;
+        let app_group_dict = response
+            .get("applicationGroup")
+            .and_then(|v| v.as_dictionary())
+            .ok_or(Error::Parse)?;
+        let application_group = app_group_dict
+            .get("applicationGroup")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+        let name = app_group_dict
+            .get("name")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+        let identifier = app_group_dict
+            .get("identifier")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+
+        Ok(ApplicationGroup {
+            application_group,
+            name,
+            identifier,
+        })
+    }
+
+    pub async fn assign_application_group_to_app_id(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        app_id: &AppId,
+        app_group: &ApplicationGroup,
+    ) -> Result<(), Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}assignApplicationGroupToAppId.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert(
+            "appIdId".to_string(),
+            plist::Value::String(app_id.app_id_id.clone()),
+        );
+        body.insert(
+            "applicationGroups".to_string(),
+            plist::Value::String(app_group.application_group.clone()),
+        );
+
+        self.send_developer_request(&url, Some(body)).await?;
+
+        Ok(())
+    }
+
+    pub async fn download_team_provisioning_profile(
+        &self,
+        device_type: DeveloperDeviceType,
+        team: &DeveloperTeam,
+        app_id: &AppId,
+    ) -> Result<ProvisioningProfile, Error> {
+        let url = format!(
+            "https://developerservices2.apple.com/services/QH65B2/{}downloadTeamProvisioningProfile.action?clientId=XABBG36SBA",
+            device_type.url_segment()
+        );
+        let mut body = plist::Dictionary::new();
+        body.insert(
+            "teamId".to_string(),
+            plist::Value::String(team.team_id.clone()),
+        );
+        body.insert(
+            "appIdId".to_string(),
+            plist::Value::String(app_id.app_id_id.clone()),
+        );
+
+        let response = self.send_developer_request(&url, Some(body)).await?;
+
+        let profile = response
+            .get("provisioningProfile")
+            .and_then(|v| v.as_dictionary())
+            .ok_or(Error::Parse)?;
+        let name = profile
+            .get("name")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+        let provisioning_profile_id = profile
+            .get("provisioningProfileId")
+            .and_then(|v| v.as_string())
+            .ok_or(Error::Parse)?
+            .to_string();
+        let encoded_profile = profile
+            .get("encodedProfile")
+            .and_then(|v| v.as_data())
+            .ok_or(Error::Parse)?
+            .to_vec();
+
+        Ok(ProvisioningProfile {
+            name,
+            provisioning_profile_id,
+            encoded_profile,
         })
     }
 }
