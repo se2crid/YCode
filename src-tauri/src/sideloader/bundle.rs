@@ -140,6 +140,18 @@ impl Bundle {
             .chain(self.app_extensions.iter())
             .collect()
     }
+
+    pub fn write_info(&self) -> Result<(), InvalidBundleError> {
+        let info_plist_path = self.bundle_dir.join("Info.plist");
+        let result = plist::to_file_binary(&info_plist_path, &self.app_info);
+
+        if result.is_err() {
+            return Err(InvalidBundleError {
+                message: format!("Failed to write Info.plist: {}", result.unwrap_err()),
+            });
+        }
+        Ok(())
+    }
 }
 
 fn assert_bundle(condition: bool, msg: &str) -> Result<(), InvalidBundleError> {

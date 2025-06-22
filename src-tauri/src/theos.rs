@@ -122,11 +122,10 @@ pub fn windows_to_wsl_path(path: &str) -> String {
 }
 
 pub async fn build_theos_linux(window: tauri::Window, folder: &str) {
-    // cd to the folder and run make clean package
     let mut command = Command::new("sh");
     command
         .arg("-c")
-        .arg(format!("cd {} && make clean package", folder));
+        .arg(format!("cd {} && make package", folder));
 
     pipe_command(&mut command, window, "build").await;
 }
@@ -134,7 +133,7 @@ pub async fn build_theos_linux(window: tauri::Window, folder: &str) {
 pub async fn build_theos_windows(window: tauri::Window, folder: &str) {
     let mut command = Command::new("wsl");
     command.arg("bash").arg("-ic").arg(format!(
-        "cd {} && make clean package",
+        "cd {} && make package",
         windows_to_wsl_path(folder)
     ));
 

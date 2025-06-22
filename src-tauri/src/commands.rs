@@ -4,7 +4,7 @@ use crate::sideloader::apple::ensure_device_registered;
 use crate::sideloader::certificate::CertificateIdentity;
 use crate::theos::{build_theos_linux, build_theos_windows, pipe_command};
 use icloud_auth::{DeveloperDeviceType, ProvisioningProfile};
-use std::collections::HashMap;
+use std::io::Write;
 use std::process::Command;
 use tauri::{Emitter, Manager};
 
@@ -121,7 +121,10 @@ pub async fn deploy_theos(
     let certs = certs.unwrap();
     print!("Available certificates:\n");
     for cert in &certs {
-        println!("{}: {}", cert.name, cert.serial_number);
+        println!(
+            "{}, {}, {}",
+            cert.machine_name, cert.name, cert.serial_number
+        );
     }
     let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
     let cert = match CertificateIdentity::new(config_dir, &account, get_apple_email()).await {
@@ -330,45 +333,68 @@ pub async fn deploy_theos(
         matching_app_groups[0].clone()
     };
 
-    let mut provisioning_profiles: HashMap<String, ProvisioningProfile> = HashMap::new();
-    for app_id in app_ids {
-        let assign_res = account
-            .assign_application_group_to_app_id(
-                DeveloperDeviceType::Ios,
-                &team,
-                &app_id,
-                &app_group,
-            )
-            .await;
-        if assign_res.is_err() {
+    // let mut provisioning_profiles: HashMap<String, ProvisioningProfile> = HashMap::new();
+    // for app_id in app_ids {
+    //     let assign_res = account
+    //         .assign_application_group_to_app_id(
+    //             DeveloperDeviceType::Ios,
+    //             &team,
+    //             &app_id,
+    //             &app_group,
+    //         )
+    //         .await;
+    //     if assign_res.is_err() {
+    //         return emit_error_and_return(
+    //             &window,
+    //             &format!(
+    //                 "Failed to assign app group to app ID: {:?}",
+    //                 assign_res.err()
+    //             ),
+    //         );
+    //     }
+    //     let provisioning_profile = match account
+    //         // This doesn't seem right to me, but it's what Sideloader does... Shouldn't it be downloading the provisioning profile for this app ID, not the main?
+    //         .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
+    //         .await
+    //     {
+    //         Ok(pp /* tee hee */) => pp,
+    //         Err(e) => {
+    //             return emit_error_and_return(
+    //                 &window,
+    //                 &format!("Failed to download provisioning profile: {:?}", e),
+    //             );
+    //         }
+    //     };
+    //     provisioning_profiles.insert(app_id.identifier.clone(), provisioning_profile);
+    // }
+
+    // println!("Provisioning profiles:");
+    // for (id, profile) in &provisioning_profiles {
+    //     println!("{}: {}", id, profile.name);
+    // }
+
+    let provisioning_profile = match account
+        // This doesn't seem right to me, but it's what Sideloader does... Shouldn't it be downloading the provisioning profile for this app ID, not the main?
+        .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
+        .await
+    {
+        Ok(pp /* tee hee */) => pp,
+        Err(e) => {
             return emit_error_and_return(
                 &window,
-                &format!(
-                    "Failed to assign app group to app ID: {:?}",
-                    assign_res.err()
-                ),
+                &format!("Failed to download provisioning profile: {:?}", e),
             );
         }
-        let provisioning_profile = match account
-            // This doesn't seem right to me, but it's what Sideloader does... Shouldn't it be downloading the provisioning profile for this app ID, not the main?
-            .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
-            .await
-        {
-            Ok(pp /* tee hee */) => pp,
-            Err(e) => {
-                return emit_error_and_return(
-                    &window,
-                    &format!("Failed to download provisioning profile: {:?}", e),
-                );
-            }
-        };
-        provisioning_profiles.insert(app_id.identifier.clone(), provisioning_profile);
-    }
+    };
 
-    println!("Provisioning profiles:");
-    for (id, profile) in &provisioning_profiles {
-        println!("{}: {}", id, profile.name);
-    }
+    // write provisioning profile to disk
+    let profile_path = std::path::PathBuf::from(&folder).join("dev.prov");
+    let mut file = std::fs::File::create(&profile_path).map_err(|e| e.to_string())?;
+    file.write_all(&provisioning_profile.encoded_profile)
+        .map_err(|e| e.to_string())?;
+
+    // TODO: Recursive for sub-bundles?
+    app.bundle.write_info().map_err(|e| e.to_string())?;
 
     Ok(())
 }

@@ -14,6 +14,7 @@ pub struct CertificateIdentity {
     pub certificate: Option<X509>,
     pub private_key: PKey<Private>,
     pub key_file: PathBuf,
+    pub cert_file: PathBuf,
 }
 
 impl CertificateIdentity {
@@ -30,6 +31,7 @@ impl CertificateIdentity {
             .map_err(|e| format!("Failed to create key directory: {}", e))?;
 
         let key_file = key_path.join("key.pem");
+        let cert_file = key_path.join("cert.pem");
         let teams = apple_account
             .list_teams()
             .await
@@ -57,13 +59,22 @@ impl CertificateIdentity {
             certificate: None,
             private_key,
             key_file,
+            cert_file,
         };
 
         if let Ok(cert) = cert_identity
             .find_matching_certificate(&apple_account, team)
             .await
         {
-            cert_identity.certificate = Some(cert);
+            cert_identity.certificate = Some(cert.clone());
+
+            // Write certificate to disk
+            let cert_pem = cert
+                .to_pem()
+                .map_err(|e| format!("Failed to encode certificate to PEM: {}", e))?;
+            fs::write(&cert_identity.cert_file, cert_pem)
+                .map_err(|e| format!("Failed to save certificate file: {}", e))?;
+
             return Ok(cert_identity);
         }
 
@@ -165,10 +176,17 @@ impl CertificateIdentity {
             .find(|cert| cert.certificate_id == certificate_id)
             .ok_or("Certificate not found after submission")?;
 
-        self.certificate = Some(
-            X509::from_der(&apple_cert.cert_content)
-                .map_err(|e| format!("Failed to parse certificate: {}", e))?,
-        );
+        let certificate = X509::from_der(&apple_cert.cert_content)
+            .map_err(|e| format!("Failed to parse certificate: {}", e))?;
+
+        // Write certificate to disk
+        let cert_pem = certificate
+            .to_pem()
+            .map_err(|e| format!("Failed to encode certificate to PEM: {}", e))?;
+        fs::write(&self.cert_file, cert_pem)
+            .map_err(|e| format!("Failed to save certificate file: {}", e))?;
+
+        self.certificate = Some(certificate);
 
         Ok(())
     }
@@ -179,5 +197,13 @@ impl CertificateIdentity {
 
     pub fn get_private_key(&self) -> &PKey<Private> {
         &self.private_key
+    }
+
+    pub fn get_certificate_file_path(&self) -> &PathBuf {
+        &self.cert_file
+    }
+
+    pub fn get_private_key_file_path(&self) -> &PathBuf {
+        &self.key_file
     }
 }
