@@ -3,7 +3,8 @@ use crate::emit_error_and_return;
 use crate::sideloader::apple::ensure_device_registered;
 use crate::sideloader::certificate::CertificateIdentity;
 use crate::theos::{build_theos_linux, build_theos_windows, pipe_command};
-use icloud_auth::DeveloperDeviceType;
+use icloud_auth::{DeveloperDeviceType, ProvisioningProfile};
+use std::collections::HashMap;
 use std::process::Command;
 use tauri::{Emitter, Manager};
 
@@ -135,7 +136,7 @@ pub async fn deploy_theos(
             "Certificate acquired succesfully".to_string(),
         )
         .ok();
-    let app_ids = match account
+    let mut list_app_id_response = match account
         .list_app_ids(icloud_auth::DeveloperDeviceType::Ios, team)
         .await
     {
@@ -156,6 +157,7 @@ pub async fn deploy_theos(
     }
     let ipa_path = ipa_path.unwrap();
     let mut app = crate::sideloader::application::Application::new(ipa_path);
+    let is_sidestore = app.bundle.bundle_identifier().unwrap_or("") == "com.SideStore.SideStore";
     let main_app_bundle_id = match app.bundle.bundle_identifier() {
         Some(id) => id.to_string(),
         None => {
@@ -202,20 +204,20 @@ pub async fn deploy_theos(
         .iter()
         .filter(|bundle| {
             let bundle_id = bundle.bundle_identifier().unwrap_or("");
-            app_ids
+            list_app_id_response
                 .app_ids
                 .iter()
                 .any(|app_id| app_id.app_id_id == bundle_id)
         })
         .collect::<Vec<_>>();
 
-    if app_ids_to_register.len() > app_ids.available_quantity.try_into().unwrap() {
+    if app_ids_to_register.len() > list_app_id_response.available_quantity.try_into().unwrap() {
         return emit_error_and_return(
             &window,
             &format!(
                 "This app requires {} app ids, but you only have {} available",
                 app_ids_to_register.len(),
-                app_ids.available_quantity
+                list_app_id_response.available_quantity
             ),
         );
     }
@@ -229,6 +231,143 @@ pub async fn deploy_theos(
         {
             return emit_error_and_return(&window, &format!("Failed to register app ID: {:?}", e));
         }
+    }
+    list_app_id_response = match account
+        .list_app_ids(icloud_auth::DeveloperDeviceType::Ios, team)
+        .await
+    {
+        Ok(ids) => ids,
+        Err(e) => {
+            return emit_error_and_return(&window, &format!("Failed to list app IDs: {:?}", e));
+        }
+    };
+
+    let mut app_ids: Vec<_> = list_app_id_response
+        .app_ids
+        .into_iter()
+        .filter(|app_id| {
+            bundles_with_app_id
+                .iter()
+                .any(|bundle| app_id.identifier == bundle.bundle_identifier().unwrap_or(""))
+        })
+        .collect();
+    let main_app_id = app_ids
+        .iter()
+        .find(|app_id| app_id.identifier == main_app_id_str)
+        .cloned()
+        .ok_or("Main app ID not found")?;
+
+    for app_id in app_ids.iter_mut() {
+        let app_group_feature_enabled = app_id
+            .features
+            .get(
+                "APG3427HIY", /* Gotta love apple and their magic strings! */
+            )
+            .and_then(|v| v.as_boolean())
+            .ok_or("App group feature not found in app id")?;
+        if !app_group_feature_enabled {
+            let mut body = plist::Dictionary::new();
+            body.insert("APG3427HIY".to_string(), plist::Value::Boolean(true));
+            let new_features = match account
+                .update_app_id(DeveloperDeviceType::Ios, &team, &app_id, &body)
+                .await
+            {
+                Ok(new_feats) => new_feats,
+                Err(e) => {
+                    return emit_error_and_return(
+                        &window,
+                        &format!("Failed to update app ID features: {:?}", e),
+                    );
+                }
+            };
+            app_id.features = new_features;
+        }
+    }
+
+    let group_identifier = format!("group.{}", main_app_id_str);
+
+    if is_sidestore {
+        app.bundle.app_info.insert(
+            "ALTAppGroups".to_string(),
+            plist::Value::Array(vec![plist::Value::String(group_identifier.clone())]),
+        );
+    }
+
+    let app_groups = match account
+        .list_application_groups(DeveloperDeviceType::Ios, &team)
+        .await
+    {
+        Ok(groups) => groups,
+        Err(e) => {
+            return emit_error_and_return(&window, &format!("Failed to list app groups: {:?}", e));
+        }
+    };
+
+    let matching_app_groups = app_groups
+        .iter()
+        .filter(|group| group.identifier == group_identifier.clone())
+        .collect::<Vec<_>>();
+
+    let app_group = if matching_app_groups.is_empty() {
+        match account
+            .add_application_group(
+                DeveloperDeviceType::Ios,
+                &team,
+                &group_identifier,
+                &main_app_name,
+            )
+            .await
+        {
+            Ok(group) => group,
+            Err(e) => {
+                return emit_error_and_return(
+                    &window,
+                    &format!("Failed to register app group: {:?}", e),
+                );
+            }
+        }
+    } else {
+        matching_app_groups[0].clone()
+    };
+
+    let mut provisioning_profiles: HashMap<String, ProvisioningProfile> = HashMap::new();
+    for app_id in app_ids {
+        let assign_res = account
+            .assign_application_group_to_app_id(
+                DeveloperDeviceType::Ios,
+                &team,
+                &app_id,
+                &app_group,
+            )
+            .await;
+        if assign_res.is_err() {
+            return emit_error_and_return(
+                &window,
+                &format!(
+                    "Failed to assign app group to app ID: {:?}",
+                    assign_res.err()
+                ),
+            );
+        }
+        let provisioning_profile = match account
+            // This doesn't seem right to me, but it's what Sideloader does... Shouldn't it be downloading the provisioning profile for this app ID, not the main?
+            .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
+            .await
+        {
+            Ok(pp /* tee hee */) => pp,
+            Err(e) => {
+                return emit_error_and_return(
+                    &window,
+                    &format!("Failed to download provisioning profile: {:?}", e),
+                );
+            }
+        };
+        provisioning_profiles.insert(app_id.identifier.clone(), provisioning_profile);
+    }
+
+    println!("Provisioning profiles:");
+    for (id, profile) in &provisioning_profiles {
+        println!("{}: {}", id, profile.name);
     }
 
     Ok(())
