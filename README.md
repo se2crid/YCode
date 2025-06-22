@@ -24,7 +24,7 @@ Coming soon...
 - [x] Create an App ID for the app
 - [x] Create & manage an application group for the app
 - [x] Acquire a provisioning profile for the app
-- [ ] Sign the app
+- [x] Sign the app
 - [ ] Install the app!
 
 **Coding App**
@@ -34,6 +34,7 @@ Coming soon...
 - [ ] Project Templates
 - [ ] Swift LSP Support
 - [ ] UI to change makefile settings
+- [ ] SwiftPM support (more research needed)
 
 ## What AI did
 

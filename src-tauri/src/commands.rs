@@ -3,10 +3,12 @@ use crate::emit_error_and_return;
 use crate::sideloader::apple::ensure_device_registered;
 use crate::sideloader::certificate::CertificateIdentity;
 use crate::theos::{build_theos_linux, build_theos_windows, pipe_command};
-use icloud_auth::{DeveloperDeviceType, ProvisioningProfile};
+use icloud_auth::DeveloperDeviceType;
 use std::io::Write;
 use std::process::Command;
 use tauri::{Emitter, Manager};
+use tauri_plugin_shell::process::CommandEvent;
+use tauri_plugin_shell::ShellExt;
 
 #[tauri::command]
 pub fn is_windows() -> bool {
@@ -395,6 +397,31 @@ pub async fn deploy_theos(
 
     // TODO: Recursive for sub-bundles?
     app.bundle.write_info().map_err(|e| e.to_string())?;
+
+    let zsign_command = handle.shell().sidecar("zsign").unwrap().args([
+        "-k",
+        cert.get_private_key_file_path().to_str().unwrap(),
+        "-c",
+        cert.get_certificate_file_path().to_str().unwrap(),
+        "-m",
+        profile_path.to_str().unwrap(),
+        app.bundle.bundle_dir.to_str().unwrap(),
+    ]);
+    let (mut rx, mut _child) = zsign_command.spawn().expect("Failed to spawn sidecar");
+
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line_bytes) | CommandEvent::Stderr(line_bytes) => {
+                    let line = String::from_utf8_lossy(&line_bytes);
+                    window
+                        .emit("build-output", Some(format!("'{}'", line)))
+                        .expect("failed to emit event");
+                }
+                _ => {}
+            }
+        }
+    });
 
     Ok(())
 }
