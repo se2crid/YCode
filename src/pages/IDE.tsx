@@ -58,7 +58,7 @@ export default () => {
         direction={SplitDirection.Horizontal}
         initialSizes={[20, 80]}
       >
-        <Tile>
+        <Tile className="file-explorer-tile">
           <FileExplorer openFolder={path} setOpenFile={openNewFile} />
         </Tile>
         <Splitter

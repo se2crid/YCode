@@ -22,22 +22,62 @@ pub async fn sideload_ipa(
     if device.uuid.is_empty() {
         return emit_error_and_return(&window, "No device selected");
     }
-    let dev_session =
-        match crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server)
-            .await
-        {
-            Ok(acc) => acc,
-            Err(e) => {
-                return emit_error_and_return(
-                    &window,
-                    &format!("Failed to login to Apple account: {:?}", e),
-                );
-            }
-        };
+    let mut dev_session = match crate::sideloader::apple::get_developer_session(
+        &handle,
+        &window,
+        anisette_server.clone(),
+    )
+    .await
+    {
+        Ok(acc) => acc,
+        Err(e) => {
+            return emit_error_and_return(
+                &window,
+                &format!("Failed to login to Apple account: {:?}", e),
+            );
+        }
+    };
+
     let teams = match dev_session.list_teams().await {
         Ok(t) => t,
         Err(e) => {
-            return emit_error_and_return(&window, &format!("Failed to list teams: {:?}", e));
+            // This code means we have been logged in for too long and we must relogin again
+            let is_22411 = match &e {
+                icloud_auth::Error::AuthSrpWithMessage(code, _) => *code == -22411,
+                _ => false,
+            };
+            if is_22411 {
+                crate::sideloader::apple::invalidate_account();
+                dev_session = match crate::sideloader::apple::get_developer_session(
+                    &handle,
+                    &window,
+                    anisette_server,
+                )
+                .await
+                {
+                    Ok(acc) => acc,
+                    Err(e) => {
+                        return emit_error_and_return(
+                            &window,
+                            &format!(
+                                "Failed to login to Apple account after invalidation: {:?}",
+                                e
+                            ),
+                        );
+                    }
+                };
+                match dev_session.list_teams().await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return emit_error_and_return(
+                            &window,
+                            &format!("Failed to list teams after invalidation: {:?}", e),
+                        );
+                    }
+                }
+            } else {
+                return emit_error_and_return(&window, &format!("Failed to list teams: {:?}", e));
+            }
         }
     };
     let team = &teams[0];

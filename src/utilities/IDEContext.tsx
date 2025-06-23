@@ -30,6 +30,8 @@ export interface IDEContextType {
   hasTheos: boolean;
   devices: DeviceInfo[];
   openFolderDialog: () => void;
+  consoleLines: string[];
+  setConsoleLines: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 export type DeviceInfo = {
@@ -48,6 +50,7 @@ export const IDEProvider: React.FC<{
   const [hasTheos, setHasTheos] = useState<boolean>(false);
   const [initialized, setInitialized] = useState(false);
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
+  const [consoleLines, setConsoleLines] = useState<string[]>([]);
 
   useEffect(() => {
     let initPromises: Promise<void>[] = [];
@@ -182,8 +185,18 @@ export const IDEProvider: React.FC<{
       initialized,
       devices,
       openFolderDialog,
+      consoleLines,
+      setConsoleLines,
     }),
-    [isWindows, hasWSL, hasTheos, initialized, devices]
+    [
+      isWindows,
+      hasWSL,
+      hasTheos,
+      initialized,
+      devices,
+      openFolderDialog,
+      consoleLines,
+    ]
   );
 
   return (

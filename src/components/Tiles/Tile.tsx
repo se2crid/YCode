@@ -4,9 +4,10 @@ import "./Tile.css";
 export interface TileProps {
   title?: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-export default ({ title, children }: TileProps) => {
+export default ({ title, children, className }: TileProps) => {
   return (
     <div className={"tile"}>
       {title != null && (
@@ -14,7 +15,9 @@ export default ({ title, children }: TileProps) => {
           {title}
         </Typography>
       )}
-      <div className={"tile-content"}>{children}</div>
+      <div className={"tile-content" + (className ? " " + className : "")}>
+        {children}
+      </div>
     </div>
   );
 };

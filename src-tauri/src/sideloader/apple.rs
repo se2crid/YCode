@@ -220,3 +220,11 @@ pub async fn ensure_device_registered(
         .ok();
     Ok(())
 }
+
+pub fn invalidate_account() {
+    let cell = APPLE_ACCOUNT.get();
+    if let Some(account) = cell {
+        let mut account_guard = account.lock().unwrap();
+        *account_guard = None;
+    }
+}

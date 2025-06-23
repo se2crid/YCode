@@ -4,17 +4,28 @@ import {
   AccordionGroup,
   AccordionSummary,
   Button,
+  Divider,
+  Menu,
+  MenuItem,
+  Modal,
+  ModalDialog,
+  Input,
+  Typography,
+  Box,
 } from "@mui/joy";
 import "./FileExplorer.css";
 import { useCallback, useEffect, useState } from "react";
 import { path } from "@tauri-apps/api";
 import * as fs from "@tauri-apps/plugin-fs";
+import { ClickAwayListener } from "@mui/material";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 interface FileItemProps {
   filePath: string;
   isDirectory: boolean;
   setOpenFile: (file: string) => void;
   openDefault?: boolean;
+  refresh?: number;
 }
 
 const FileItem: React.FC<FileItemProps> = ({
@@ -22,6 +33,7 @@ const FileItem: React.FC<FileItemProps> = ({
   isDirectory,
   setOpenFile,
   openDefault = false,
+  refresh = 0,
 }) => {
   const handleOpenFile = useCallback(() => {
     setOpenFile(filePath);
@@ -49,12 +61,18 @@ const FileItem: React.FC<FileItemProps> = ({
             isDirectory: file.isDirectory,
           };
         });
-        setChildren(await Promise.all(parsedFilePromises));
+        setChildren(
+          (await Promise.all(parsedFilePromises)).sort((a, b) => {
+            if (a.isDirectory && !b.isDirectory) return -1;
+            if (!a.isDirectory && b.isDirectory) return 1;
+            return a.path.localeCompare(b.path);
+          })
+        );
       } catch (error) {
         console.error("Failed to read file:", filePath, error);
       }
     })();
-  }, [filePath, expanded]);
+  }, [filePath, expanded, refresh]);
 
   const handleAccordionChange = (
     _: React.SyntheticEvent,
@@ -66,7 +84,15 @@ const FileItem: React.FC<FileItemProps> = ({
   if (isDirectory) {
     return (
       <Accordion onChange={handleAccordionChange} defaultExpanded={openDefault}>
-        <AccordionSummary>{name}</AccordionSummary>
+        <AccordionSummary
+          slotProps={{
+            button: {
+              "data-path": filePath,
+            },
+          }}
+        >
+          {name}
+        </AccordionSummary>
         <AccordionDetails>
           <AccordionGroup
             size="sm"
@@ -81,6 +107,7 @@ const FileItem: React.FC<FileItemProps> = ({
                 filePath={child.path}
                 isDirectory={child.isDirectory}
                 setOpenFile={setOpenFile}
+                refresh={refresh}
               />
             ))}
           </AccordionGroup>
@@ -93,7 +120,17 @@ const FileItem: React.FC<FileItemProps> = ({
         size="sm"
         onClick={handleOpenFile}
         variant="plain"
-        sx={{ justifyContent: "flex-start" }}
+        data-path={filePath}
+        sx={{
+          justifyContent: "flex-start",
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+          overflow: "hidden",
+          width: "100%",
+          display: "block",
+          textAlign: "left",
+          paddingLeft: "0.5rem",
+        }}
       >
         {name}
       </Button>
@@ -106,14 +143,178 @@ export interface FileExplorerProps {
   setOpenFile: (file: string) => void;
 }
 export default ({ openFolder, setOpenFile }: FileExplorerProps) => {
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    filePath: string;
+  } | null>(null);
+
+  const [refresh, setRefresh] = useState(0);
+
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameTarget, setRenameTarget] = useState<string | null>(null);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteBasename, setDeleteBasename] = useState("");
+
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (event.target instanceof HTMLButtonElement) {
+      const path = event.target.getAttribute("data-path");
+      if (path) {
+        event.preventDefault();
+
+        setContextMenu(
+          contextMenu === null
+            ? {
+                mouseX: event.clientX + 2,
+                mouseY: event.clientY - 6,
+                filePath: path,
+              }
+            : null
+        );
+      }
+    }
+  };
+
+  const handleClose = () => {
+    setContextMenu(null);
+  };
+
+  const handleRename = async () => {
+    if (!renameTarget) return;
+    const parent = await path.dirname(renameTarget);
+    const newPath = await path.resolve(parent, renameValue);
+    await fs.rename(renameTarget, newPath);
+    setRenameOpen(false);
+    setRenameTarget(null);
+    setRenameValue("");
+    setRefresh((r) => r + 1);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await fs.remove(deleteTarget, { recursive: true });
+    setDeleteOpen(false);
+    setDeleteTarget(null);
+    setRefresh((r) => r + 1);
+  };
+
   return (
-    <div className={"file-explorer"}>
+    <div className={"file-explorer"} onContextMenu={handleContextMenu}>
       <FileItem
         filePath={openFolder}
         isDirectory={true}
         setOpenFile={setOpenFile}
         openDefault={true}
+        refresh={refresh}
       />
+      <ClickAwayListener onClickAway={handleClose}>
+        <Menu
+          size="sm"
+          open={contextMenu !== null}
+          onClose={handleClose}
+          anchorEl={
+            contextMenu !== null
+              ? ({
+                  getBoundingClientRect: () =>
+                    ({
+                      top: contextMenu.mouseY,
+                      left: contextMenu.mouseX,
+                      right: contextMenu.mouseX,
+                      bottom: contextMenu.mouseY,
+                      width: 0,
+                      height: 0,
+                    } as DOMRect),
+                } as any)
+              : undefined
+          }
+          placement="bottom-start"
+          sx={{
+            pt: 0,
+            pb: 0,
+          }}
+        >
+          <MenuItem
+            onClick={async () => {
+              handleClose();
+              await revealItemInDir(contextMenu!.filePath);
+            }}
+          >
+            Open Containing Folder
+          </MenuItem>
+          <Divider />
+          <MenuItem
+            onClick={async () => {
+              handleClose();
+              setRenameTarget(contextMenu!.filePath);
+              setRenameValue(await path.basename(contextMenu!.filePath));
+              setRenameOpen(true);
+            }}
+          >
+            Rename
+          </MenuItem>
+          <MenuItem
+            onClick={async () => {
+              handleClose();
+              setDeleteTarget(contextMenu!.filePath);
+              setDeleteBasename(await path.basename(contextMenu!.filePath));
+              setDeleteOpen(true);
+            }}
+          >
+            Delete
+          </MenuItem>
+        </Menu>
+      </ClickAwayListener>
+
+      {/* Rename Modal */}
+      <Modal open={renameOpen} onClose={() => setRenameOpen(false)}>
+        <ModalDialog>
+          <Typography level="h4" component="h2" sx={{ mb: 2 }}>
+            Rename
+          </Typography>
+          <Input
+            autoFocus
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={async (e) => {
+              if (e.key === "Enter") {
+                await handleRename();
+              }
+            }}
+          />
+          <Box
+            sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 2 }}
+          >
+            <Button onClick={() => setRenameOpen(false)}>Cancel</Button>
+            <Button onClick={handleRename} disabled={!renameValue.trim()}>
+              Rename
+            </Button>
+          </Box>
+        </ModalDialog>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+        <ModalDialog>
+          <Typography level="h4" component="h2" sx={{ mb: 2 }}>
+            Confirm Delete
+          </Typography>
+          <Typography sx={{ mb: 2 }}>
+            Are you sure you want to delete <b>{deleteBasename}</b>? This action
+            cannot be undone.
+          </Typography>
+          <Box
+            sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 2 }}
+          >
+            <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button color="danger" onClick={handleDelete}>
+              Delete
+            </Button>
+          </Box>
+        </ModalDialog>
+      </Modal>
     </div>
   );
 };

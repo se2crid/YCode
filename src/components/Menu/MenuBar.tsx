@@ -344,6 +344,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
           icon={<Refresh />}
           parameters={{}}
           sx={{ marginLeft: 0, marginRight: 0 }}
+          clearConsole={false}
         />
         <Select
           size="sm"

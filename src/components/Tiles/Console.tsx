@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import "./Console.css";
 import { listen } from "@tauri-apps/api/event";
 import Convert from "ansi-to-html";
 import { Virtuoso } from "react-virtuoso";
+import { useIDE } from "../../utilities/IDEContext";
 
 const convert = new Convert();
 
@@ -16,7 +17,7 @@ function escapeHtml(unsafe: string) {
 }
 
 export default function Console() {
-  const [lines, setLines] = useState<string[]>([]);
+  const { consoleLines, setConsoleLines } = useIDE();
   const listenerAdded = useRef(false);
   const unlisten = useRef<() => void>(() => {});
 
@@ -27,15 +28,15 @@ export default function Console() {
           let line = event.payload as string;
           if (line.includes("command.done")) {
             if (line.split(".")[2] === "999") {
-              setLines((lines) => [...lines, "Command failed"]);
+              setConsoleLines((lines) => [...lines, "Command failed"]);
             } else {
-              setLines((lines) => [
+              setConsoleLines((lines) => [
                 ...lines,
                 "Command finished with exit code: " + line.split(".")[2],
               ]);
             }
           } else {
-            setLines((lines) => [...lines, line]);
+            setConsoleLines((lines) => [...lines, line]);
           }
         });
         unlisten.current = unlistenFn;
@@ -48,17 +49,21 @@ export default function Console() {
   }, []);
 
   return (
-    <Virtuoso
-      className="console-tile"
-      atBottomThreshold={6}
-      followOutput={"auto"}
-      data={lines}
-      itemContent={(_, line) => (
-        <pre
-          style={{ margin: 0 }}
-          dangerouslySetInnerHTML={{ __html: convert.toHtml(escapeHtml(line)) }}
-        />
-      )}
-    />
+    <div className="console-container">
+      <Virtuoso
+        className="console-tile"
+        atBottomThreshold={10}
+        followOutput={"auto"}
+        data={consoleLines}
+        itemContent={(_, line) => (
+          <pre
+            style={{ margin: 0, width: "fit-content", padding: 0 }}
+            dangerouslySetInnerHTML={{
+              __html: convert.toHtml(escapeHtml(line)),
+            }}
+          />
+        )}
+      />
+    </div>
   );
 }

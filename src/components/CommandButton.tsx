@@ -1,5 +1,6 @@
 import { Button } from "@mui/joy";
 import { useCommandRunner } from "../utilities/Command";
+import { useIDE } from "../utilities/IDEContext";
 
 export interface CommandButtonProps {
   command: string;
@@ -8,6 +9,7 @@ export interface CommandButtonProps {
   icon: React.ReactNode;
   variant?: "plain" | "outlined" | "soft" | "solid";
   sx?: React.CSSProperties;
+  clearConsole?: boolean;
   validate?: () => boolean;
 }
 
@@ -18,10 +20,12 @@ export default function CommandButton({
   icon,
   variant,
   sx = {},
+  clearConsole = true,
   validate = () => true,
 }: CommandButtonProps) {
   const { isRunningCommand, currentCommand, runCommand, cancelCommand } =
     useCommandRunner();
+  const { setConsoleLines } = useIDE();
 
   return (
     <Button
@@ -38,6 +42,9 @@ export default function CommandButton({
       onClick={() => {
         if (!validate()) {
           return;
+        }
+        if (clearConsole) {
+          setConsoleLines([]);
         }
         if (isRunningCommand) {
           if (currentCommand === command) {
