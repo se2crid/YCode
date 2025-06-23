@@ -1,4 +1,4 @@
-use crate::device::DeviceInfo;
+use crate::device::{install_app, DeviceInfo};
 use crate::emit_error_and_return;
 use crate::sideloader::apple::ensure_device_registered;
 use crate::sideloader::certificate::CertificateIdentity;
@@ -262,6 +262,10 @@ pub async fn deploy_theos(
         .cloned()
         .ok_or("Main app ID not found")?;
 
+    window
+        .emit("build-output", "Registered app IDs".to_string())
+        .ok();
+
     for app_id in app_ids.iter_mut() {
         let app_group_feature_enabled = app_id
             .features
@@ -375,6 +379,10 @@ pub async fn deploy_theos(
     //     println!("{}: {}", id, profile.name);
     // }
 
+    window
+        .emit("build-output", "Registered app groups".to_string())
+        .ok();
+
     let provisioning_profile = match account
         // This doesn't seem right to me, but it's what Sideloader does... Shouldn't it be downloading the provisioning profile for this app ID, not the main?
         .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
@@ -398,6 +406,10 @@ pub async fn deploy_theos(
     // TODO: Recursive for sub-bundles?
     app.bundle.write_info().map_err(|e| e.to_string())?;
 
+    window
+        .emit("build-output", "Signining app...".to_string())
+        .ok();
+
     let zsign_command = handle.shell().sidecar("zsign").unwrap().args([
         "-k",
         cert.get_private_key_file_path().to_str().unwrap(),
@@ -407,7 +419,7 @@ pub async fn deploy_theos(
         profile_path.to_str().unwrap(),
         app.bundle.bundle_dir.to_str().unwrap(),
     ]);
-    let (mut rx, mut _child) = zsign_command.spawn().expect("Failed to spawn sidecar");
+    let (mut rx, mut _child) = zsign_command.spawn().expect("Failed to spawn zsign");
 
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
@@ -415,8 +427,40 @@ pub async fn deploy_theos(
                 CommandEvent::Stdout(line_bytes) | CommandEvent::Stderr(line_bytes) => {
                     let line = String::from_utf8_lossy(&line_bytes);
                     window
-                        .emit("build-output", Some(format!("'{}'", line)))
+                        .emit("build-output", Some(line))
                         .expect("failed to emit event");
+                }
+                CommandEvent::Terminated(result) => {
+                    if result.code != Some(0) {
+                        window
+                            .emit("build-output", "App signing failed!".to_string())
+                            .ok();
+                        return;
+                    }
+                    window.emit("build-output", "App signed!").ok();
+
+                    window
+                        .emit(
+                            "build-output",
+                            "Installing app (Transfer)... 0%".to_string(),
+                        )
+                        .ok();
+
+                    let res = install_app(&device, &app.bundle.bundle_dir, |percentage| {
+                        window
+                            .emit("build-output", format!("Installing app... {}%", percentage))
+                            .expect("failed to emit event");
+                    })
+                    .await;
+                    if let Err(e) = res {
+                        window
+                            .emit("build-output", format!("Failed to install app: {:?}", e))
+                            .ok();
+                        return;
+                    }
+                    window
+                        .emit("build-output", "App installed!".to_string())
+                        .ok();
                 }
                 _ => {}
             }

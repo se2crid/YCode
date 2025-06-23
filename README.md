@@ -25,7 +25,7 @@ Coming soon...
 - [x] Create & manage an application group for the app
 - [x] Acquire a provisioning profile for the app
 - [x] Sign the app
-- [ ] Install the app!
+- [x] Install the app!
 
 **Coding App**
 
