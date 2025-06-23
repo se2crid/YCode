@@ -1,3 +1,5 @@
+// This file was made using https://github.com/Dadoum/Sideloader as a reference.
+
 use hex;
 use icloud_auth::{AppleAccount, DeveloperDeviceType, DeveloperTeam};
 use openssl::{
@@ -68,7 +70,6 @@ impl CertificateIdentity {
         {
             cert_identity.certificate = Some(cert.clone());
 
-            // Write certificate to disk
             let cert_pem = cert
                 .to_pem()
                 .map_err(|e| format!("Failed to encode certificate to PEM: {}", e))?;
@@ -189,14 +190,6 @@ impl CertificateIdentity {
         self.certificate = Some(certificate);
 
         Ok(())
-    }
-
-    pub fn get_certificate(&self) -> Option<&X509> {
-        self.certificate.as_ref()
-    }
-
-    pub fn get_private_key(&self) -> &PKey<Private> {
-        &self.private_key
     }
 
     pub fn get_certificate_file_path(&self) -> &PathBuf {

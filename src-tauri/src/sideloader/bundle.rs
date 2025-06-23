@@ -1,3 +1,5 @@
+// This file was made using https://github.com/Dadoum/Sideloader as a reference.
+
 use plist::{Dictionary, Value};
 use std::{
     error::Error,
@@ -23,8 +25,8 @@ pub struct Bundle {
     pub bundle_dir: PathBuf,
 
     app_extensions: Vec<Bundle>,
-    frameworks: Vec<Bundle>,
-    libraries: Vec<String>,
+    _frameworks: Vec<Bundle>,
+    _libraries: Vec<String>,
 }
 
 impl Bundle {
@@ -94,8 +96,8 @@ impl Bundle {
             app_info,
             bundle_dir: bundle_path,
             app_extensions,
-            frameworks,
-            libraries,
+            _frameworks: frameworks,
+            _libraries: libraries,
         })
     }
 
@@ -118,27 +120,12 @@ impl Bundle {
             .and_then(|v| v.as_string())
     }
 
-    pub fn libraries(&self) -> &[String] {
-        &self.libraries
-    }
-
-    pub fn frameworks(&self) -> &[Bundle] {
-        &self.frameworks
-    }
-
     pub fn app_extensions(&self) -> &[Bundle] {
         &self.app_extensions
     }
 
     pub fn app_extensions_mut(&mut self) -> &mut [Bundle] {
         &mut self.app_extensions
-    }
-
-    pub fn sub_bundles(&self) -> Vec<&Bundle> {
-        self.frameworks
-            .iter()
-            .chain(self.app_extensions.iter())
-            .collect()
     }
 
     pub fn write_info(&self) -> Result<(), InvalidBundleError> {

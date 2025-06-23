@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use idevice::{
     afc::AfcClient,
     installation_proxy::InstallationProxyClient,
@@ -9,7 +7,9 @@ use idevice::{
 };
 use serde::{Deserialize, Serialize};
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
+use tauri::Emitter;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct DeviceInfo {
@@ -91,7 +91,6 @@ pub async fn install_app(
         "PublicStaging/{}",
         app_path.file_name().unwrap().to_string_lossy()
     );
-    println!("Creating directory on device... {}", dir);
     afc_upload_dir(&mut afc_client, app_path, &dir)
         .await
         .map_err(|e| format!("Failed to upload directory: {:?}", e))?;
@@ -161,4 +160,21 @@ fn afc_upload_dir<'a>(
         }
         Ok(())
     })
+}
+
+#[tauri::command]
+pub async fn refresh_idevice(window: tauri::Window) {
+    match list_devices().await {
+        Ok(devices) => {
+            window
+                .emit("idevices", devices)
+                .expect("Failed to send devices");
+        }
+        Err(e) => {
+            window
+                .emit("idevices", Vec::<DeviceInfo>::new())
+                .expect("Failed to send error");
+            eprintln!("Failed to list devices: {}", e);
+        }
+    };
 }

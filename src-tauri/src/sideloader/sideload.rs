@@ -1,90 +1,24 @@
-use crate::device::{install_app, DeviceInfo};
-use crate::emit_error_and_return;
-use crate::sideloader::apple::ensure_device_registered;
-use crate::sideloader::certificate::CertificateIdentity;
-use crate::theos::{build_theos_linux, build_theos_windows, pipe_command};
+// This file was made using https://github.com/Dadoum/Sideloader as a reference.
+
+use crate::{
+    device::{install_app, DeviceInfo},
+    emit_error_and_return,
+    sideloader::{
+        apple::ensure_device_registered, apple_commands::get_apple_email,
+        certificate::CertificateIdentity,
+    },
+};
 use icloud_auth::DeveloperDeviceType;
-use std::io::Write;
-use std::process::Command;
+use std::{io::Write, path::PathBuf};
 use tauri::{Emitter, Manager};
-use tauri_plugin_shell::process::CommandEvent;
-use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 
-#[tauri::command]
-pub fn is_windows() -> bool {
-    cfg!(target_os = "windows")
-}
-
-#[tauri::command]
-pub async fn has_wsl() -> bool {
-    crate::theos::has_wsl().await
-}
-
-#[tauri::command]
-pub async fn has_theos() -> bool {
-    crate::theos::has_theos().await
-}
-
-#[tauri::command]
-pub async fn update_theos(window: tauri::Window) {
-    let mut command = if is_windows() {
-        let mut cmd = Command::new("wsl");
-        cmd.arg("bash").arg("-ic").arg("'$THEOS/bin/update-theos'");
-        cmd
-    } else {
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg("$THEOS/bin/update-theos");
-        cmd
-    };
-
-    pipe_command(&mut command, window, "update-theos").await;
-}
-
-#[tauri::command]
-pub async fn install_theos_windows(
-    handle: tauri::AppHandle,
-    window: tauri::Window,
-    password: String,
-) {
-    crate::theos::install_theos_windows(handle, window, password).await;
-}
-
-#[tauri::command]
-pub async fn install_theos(handle: tauri::AppHandle, window: tauri::Window) {
-    crate::theos::install_theos_linux(handle, window).await;
-}
-
-#[tauri::command]
-pub async fn build_theos(window: tauri::Window, folder: String) {
-    if is_windows() {
-        build_theos_windows(window, &folder).await;
-    } else {
-        build_theos_linux(window, &folder).await;
-    }
-}
-
-#[tauri::command]
-pub fn delete_stored_credentials() -> Result<(), String> {
-    crate::sideloader::apple::delete_stored_credentials()
-}
-
-#[tauri::command]
-pub fn get_apple_email() -> String {
-    let credentials = crate::sideloader::apple::get_stored_credentials();
-    if credentials.is_none() {
-        return "".to_string();
-    }
-    let (email, _) = credentials.unwrap();
-    email
-}
-
-#[tauri::command]
-pub async fn deploy_theos(
-    handle: tauri::AppHandle,
+pub async fn sideload_ipa(
+    handle: &tauri::AppHandle,
     window: tauri::Window,
     anisette_server: String,
     device: DeviceInfo,
-    folder: String,
+    ipa_path: PathBuf,
 ) -> Result<(), String> {
     if device.uuid.is_empty() {
         return emit_error_and_return(&window, "No device selected");
@@ -111,23 +45,6 @@ pub async fn deploy_theos(
         .ok();
     ensure_device_registered(&account, &window, team, &device).await?;
 
-    let certs = account
-        .list_all_development_certs(icloud_auth::DeveloperDeviceType::Ios, team)
-        .await;
-    if certs.is_err() {
-        return emit_error_and_return(
-            &window,
-            &format!("Failed to list certificates: {:?}", certs.err()),
-        );
-    }
-    let certs = certs.unwrap();
-    print!("Available certificates:\n");
-    for cert in &certs {
-        println!(
-            "{}, {}, {}",
-            cert.machine_name, cert.name, cert.serial_number
-        );
-    }
     let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
     let cert = match CertificateIdentity::new(config_dir, &account, get_apple_email()).await {
         Ok(c) => c,
@@ -150,17 +67,7 @@ pub async fn deploy_theos(
             return emit_error_and_return(&window, &format!("Failed to list app IDs: {:?}", e));
         }
     };
-    let packages_path = std::path::PathBuf::from(&folder).join("packages");
 
-    let ipa_path = std::fs::read_dir(&packages_path)
-        .unwrap()
-        .filter_map(Result::ok)
-        .find(|entry| entry.path().extension().map_or(false, |ext| ext == "ipa"))
-        .map(|entry| entry.path());
-    if ipa_path.is_none() {
-        return emit_error_and_return(&window, "No IPA file found in packages directory");
-    }
-    let ipa_path = ipa_path.unwrap();
     let mut app = crate::sideloader::application::Application::new(ipa_path);
     let is_sidestore = app.bundle.bundle_identifier().unwrap_or("") == "com.SideStore.SideStore";
     let main_app_bundle_id = match app.bundle.bundle_identifier() {
@@ -339,52 +246,46 @@ pub async fn deploy_theos(
         matching_app_groups[0].clone()
     };
 
-    // let mut provisioning_profiles: HashMap<String, ProvisioningProfile> = HashMap::new();
-    // for app_id in app_ids {
-    //     let assign_res = account
-    //         .assign_application_group_to_app_id(
-    //             DeveloperDeviceType::Ios,
-    //             &team,
-    //             &app_id,
-    //             &app_group,
-    //         )
-    //         .await;
-    //     if assign_res.is_err() {
-    //         return emit_error_and_return(
-    //             &window,
-    //             &format!(
-    //                 "Failed to assign app group to app ID: {:?}",
-    //                 assign_res.err()
-    //             ),
-    //         );
-    //     }
-    //     let provisioning_profile = match account
-    //         // This doesn't seem right to me, but it's what Sideloader does... Shouldn't it be downloading the provisioning profile for this app ID, not the main?
-    //         .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
-    //         .await
-    //     {
-    //         Ok(pp /* tee hee */) => pp,
-    //         Err(e) => {
-    //             return emit_error_and_return(
-    //                 &window,
-    //                 &format!("Failed to download provisioning profile: {:?}", e),
-    //             );
-    //         }
-    //     };
-    //     provisioning_profiles.insert(app_id.identifier.clone(), provisioning_profile);
-    // }
-
-    // println!("Provisioning profiles:");
-    // for (id, profile) in &provisioning_profiles {
-    //     println!("{}: {}", id, profile.name);
-    // }
+    //let mut provisioning_profiles: HashMap<String, ProvisioningProfile> = HashMap::new();
+    for app_id in app_ids {
+        let assign_res = account
+            .assign_application_group_to_app_id(
+                DeveloperDeviceType::Ios,
+                &team,
+                &app_id,
+                &app_group,
+            )
+            .await;
+        if assign_res.is_err() {
+            return emit_error_and_return(
+                &window,
+                &format!(
+                    "Failed to assign app group to app ID: {:?}",
+                    assign_res.err()
+                ),
+            );
+        }
+        // let provisioning_profile = match account
+        //     // This doesn't seem right to me, but it's what Sideloader does... Shouldn't it be downloading the provisioning profile for this app ID, not the main?
+        //     .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
+        //     .await
+        // {
+        //     Ok(pp /* tee hee */) => pp,
+        //     Err(e) => {
+        //         return emit_error_and_return(
+        //             &window,
+        //             &format!("Failed to download provisioning profile: {:?}", e),
+        //         );
+        //     }
+        // };
+        // provisioning_profiles.insert(app_id.identifier.clone(), provisioning_profile);
+    }
 
     window
         .emit("build-output", "Registered app groups".to_string())
         .ok();
 
     let provisioning_profile = match account
-        // This doesn't seem right to me, but it's what Sideloader does... Shouldn't it be downloading the provisioning profile for this app ID, not the main?
         .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
         .await
     {
@@ -397,8 +298,16 @@ pub async fn deploy_theos(
         }
     };
 
-    // write provisioning profile to disk
-    let profile_path = std::path::PathBuf::from(&folder).join("dev.prov");
+    let profile_path = handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?
+        .join(format!("{}.mobileprovision", main_app_id_str));
+
+    if profile_path.exists() {
+        std::fs::remove_file(&profile_path).map_err(|e| e.to_string())?;
+    }
+
     let mut file = std::fs::File::create(&profile_path).map_err(|e| e.to_string())?;
     file.write_all(&provisioning_profile.encoded_profile)
         .map_err(|e| e.to_string())?;
@@ -421,79 +330,53 @@ pub async fn deploy_theos(
     ]);
     let (mut rx, mut _child) = zsign_command.spawn().expect("Failed to spawn zsign");
 
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            match event {
-                CommandEvent::Stdout(line_bytes) | CommandEvent::Stderr(line_bytes) => {
-                    let line = String::from_utf8_lossy(&line_bytes);
-                    window
-                        .emit("build-output", Some(line))
-                        .expect("failed to emit event");
-                }
-                CommandEvent::Terminated(result) => {
-                    if result.code != Some(0) {
-                        window
-                            .emit("build-output", "App signing failed!".to_string())
-                            .ok();
-                        return;
-                    }
-                    window.emit("build-output", "App signed!").ok();
-
-                    window
-                        .emit(
-                            "build-output",
-                            "Installing app (Transfer)... 0%".to_string(),
-                        )
-                        .ok();
-
-                    let res = install_app(&device, &app.bundle.bundle_dir, |percentage| {
-                        window
-                            .emit("build-output", format!("Installing app... {}%", percentage))
-                            .expect("failed to emit event");
-                    })
-                    .await;
-                    if let Err(e) = res {
-                        window
-                            .emit("build-output", format!("Failed to install app: {:?}", e))
-                            .ok();
-                        return;
-                    }
-                    window
-                        .emit("build-output", "App installed!".to_string())
-                        .ok();
-                }
-                _ => {}
+    let mut signing_failed = false;
+    while let Some(event) = rx.recv().await {
+        match event {
+            CommandEvent::Stdout(line_bytes) | CommandEvent::Stderr(line_bytes) => {
+                let line = String::from_utf8_lossy(&line_bytes);
+                window
+                    .emit("build-output", Some(line))
+                    .expect("failed to emit event");
             }
+            CommandEvent::Terminated(result) => {
+                if result.code != Some(0) {
+                    window
+                        .emit("build-output", "App signing failed!".to_string())
+                        .ok();
+                    signing_failed = true;
+                    break;
+                }
+                window.emit("build-output", "App signed!").ok();
+
+                window
+                    .emit(
+                        "build-output",
+                        "Installing app (Transfer)... 0%".to_string(),
+                    )
+                    .ok();
+
+                let res = install_app(&device, &app.bundle.bundle_dir, |percentage| {
+                    window
+                        .emit("build-output", format!("Installing app... {}%", percentage))
+                        .expect("failed to emit event");
+                })
+                .await;
+                if let Err(e) = res {
+                    window
+                        .emit("build-output", format!("Failed to install app: {:?}", e))
+                        .ok();
+                    signing_failed = true;
+                }
+                break;
+            }
+            _ => {}
         }
-    });
+    }
 
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn reset_anisette(handle: tauri::AppHandle) -> Result<(), String> {
-    let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
-    let status_path = config_dir.join("state.plist");
-    if status_path.exists() {
-        std::fs::remove_file(&status_path).map_err(|e| e.to_string())?;
+    if signing_failed {
+        return Err("Signing or installation failed".to_string());
     }
 
     Ok(())
-}
-
-#[tauri::command]
-pub async fn refresh_idevice(window: tauri::Window) {
-    match crate::device::list_devices().await {
-        Ok(devices) => {
-            window
-                .emit("idevices", devices)
-                .expect("Failed to send devices");
-        }
-        Err(e) => {
-            window
-                .emit("idevices", Vec::<DeviceInfo>::new())
-                .expect("Failed to send error");
-            eprintln!("Failed to list devices: {}", e);
-        }
-    };
 }

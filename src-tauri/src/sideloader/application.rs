@@ -1,3 +1,5 @@
+// This file was made using https://github.com/Dadoum/Sideloader as a reference.
+
 use crate::sideloader::bundle::Bundle;
 use std::fs::File;
 use std::path::PathBuf;

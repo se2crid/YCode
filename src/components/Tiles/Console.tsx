@@ -19,28 +19,21 @@ export default function Console() {
   const [lines, setLines] = useState<string[]>([]);
   const listenerAdded = useRef(false);
   const unlisten = useRef<() => void>(() => {});
-  const clearOnNext = useRef(false);
 
   useEffect(() => {
     if (!listenerAdded.current) {
       (async () => {
         const unlistenFn = await listen("build-output", (event) => {
           let line = event.payload as string;
-          if (clearOnNext.current) {
-            setLines([line]);
-            clearOnNext.current = false;
-            return;
-          }
           if (line.includes("command.done")) {
             if (line.split(".")[2] === "999") {
-              setLines((lines) => [...lines, "Command finished"]);
+              setLines((lines) => [...lines, "Command failed"]);
             } else {
               setLines((lines) => [
                 ...lines,
                 "Command finished with exit code: " + line.split(".")[2],
               ]);
             }
-            clearOnNext.current = true;
           } else {
             setLines((lines) => [...lines, line]);
           }

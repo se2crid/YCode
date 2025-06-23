@@ -167,7 +167,9 @@ export default ({}: OnboardingProps) => {
             <RunCommand
               title="Installing Theos..."
               command={
-                isWindows === true ? "install_theos_windows" : "install_theos"
+                isWindows === true
+                  ? "install_theos_windows"
+                  : "install_theos_linux"
               }
               listener="install-theos-output"
               failedMessage="Failed to install theos"

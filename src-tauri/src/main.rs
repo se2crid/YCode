@@ -2,13 +2,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 #[macro_use]
-mod commands;
+mod theos;
+#[macro_use]
 mod device;
 mod sideloader;
-mod theos;
 
-use commands::*;
+use device::refresh_idevice;
+use sideloader::apple_commands::{delete_stored_credentials, get_apple_email, reset_anisette};
 use tauri::Emitter;
+use theos::{
+    build_theos, deploy_theos, has_theos, has_wsl, install_theos_linux, install_theos_windows,
+    is_windows, update_theos,
+};
 
 fn main() {
     tauri::Builder::default()
@@ -20,7 +25,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             has_theos,
             update_theos,
-            install_theos,
+            install_theos_linux,
             install_theos_windows,
             is_windows,
             has_wsl,

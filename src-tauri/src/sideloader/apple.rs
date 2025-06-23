@@ -1,5 +1,4 @@
 use icloud_auth::{AnisetteConfiguration, AppleAccount, DeveloperDeviceType, DeveloperTeam};
-use keyring::{Entry, Error as KeyringError};
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 use std::{
@@ -8,9 +7,13 @@ use std::{
 };
 use tauri::{Emitter, Listener, Manager};
 
-use crate::{device::DeviceInfo, emit_error_and_return};
+use crate::{
+    device::DeviceInfo,
+    emit_error_and_return,
+    sideloader::apple_commands::{get_stored_credentials, store_credentials},
+};
 
-static APPLE_ACCOUNT: OnceCell<Mutex<Option<Arc<AppleAccount>>>> = OnceCell::new();
+pub static APPLE_ACCOUNT: OnceCell<Mutex<Option<Arc<AppleAccount>>>> = OnceCell::new();
 
 pub async fn get_account(
     handle: &tauri::AppHandle,
@@ -89,7 +92,6 @@ pub async fn login(
                     .unwrap_or(false);
 
                 if save_credentials {
-                    // Store both email and password securely
                     if let Err(e) = store_credentials(&apple_id, &password) {
                         window_clone
                             .emit(
@@ -169,44 +171,6 @@ pub async fn login(
         .map_err(|e| e.to_string())?;
 
     Ok(account)
-}
-
-pub fn store_credentials(email: &str, password: &str) -> Result<(), KeyringError> {
-    let email_entry = Entry::new("y-code", "apple_id_email")?;
-    email_entry.set_password(email)?;
-    let pass_entry = Entry::new("y-code", email)?;
-    pass_entry.set_password(password)
-}
-
-pub fn get_stored_credentials() -> Option<(String, String)> {
-    let email_entry = Entry::new("y-code", "apple_id_email").ok()?;
-    let email = email_entry.get_password().ok()?;
-    let pass_entry = Entry::new("y-code", &email).ok()?;
-    let password = pass_entry.get_password().ok()?;
-    Some((email, password))
-}
-
-pub fn delete_stored_credentials() -> Result<(), String> {
-    let email_entry =
-        Entry::new("y-code", "apple_id_email").map_err(|e| format!("Keyring error: {:?}", e))?;
-    let email = match email_entry.get_password() {
-        Ok(email) => email,
-        Err(_) => {
-            return Ok(());
-        }
-    };
-    let pass_entry = Entry::new("y-code", &email).map_err(|e| format!("Keyring error: {:?}", e))?;
-
-    let _ = pass_entry.delete_password();
-    email_entry
-        .delete_password()
-        .map_err(|e| format!("Keyring error: {:?}", e))?;
-
-    if let Some(account) = APPLE_ACCOUNT.get() {
-        let mut account_guard = account.lock().unwrap();
-        *account_guard = None;
-    }
-    Ok(())
 }
 
 pub async fn ensure_device_registered(
