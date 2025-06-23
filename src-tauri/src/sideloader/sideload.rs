@@ -5,10 +5,9 @@ use crate::{
     emit_error_and_return,
     sideloader::{
         apple::ensure_device_registered, apple_commands::get_apple_email,
-        certificate::CertificateIdentity,
+        certificate::CertificateIdentity, developer_session::DeveloperDeviceType,
     },
 };
-use icloud_auth::DeveloperDeviceType;
 use std::{io::Write, path::PathBuf};
 use tauri::{Emitter, Manager};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
@@ -23,8 +22,10 @@ pub async fn sideload_ipa(
     if device.uuid.is_empty() {
         return emit_error_and_return(&window, "No device selected");
     }
-    let account =
-        match crate::sideloader::apple::get_account(&handle, &window, anisette_server).await {
+    let dev_session =
+        match crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server)
+            .await
+        {
             Ok(acc) => acc,
             Err(e) => {
                 return emit_error_and_return(
@@ -33,7 +34,7 @@ pub async fn sideload_ipa(
                 );
             }
         };
-    let teams = match account.list_teams().await {
+    let teams = match dev_session.list_teams().await {
         Ok(t) => t,
         Err(e) => {
             return emit_error_and_return(&window, &format!("Failed to list teams: {:?}", e));
@@ -43,10 +44,10 @@ pub async fn sideload_ipa(
     window
         .emit("build-output", "Successfully retrieved team".to_string())
         .ok();
-    ensure_device_registered(&account, &window, team, &device).await?;
+    ensure_device_registered(&dev_session, &window, team, &device).await?;
 
     let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
-    let cert = match CertificateIdentity::new(config_dir, &account, get_apple_email()).await {
+    let cert = match CertificateIdentity::new(config_dir, &dev_session, get_apple_email()).await {
         Ok(c) => c,
         Err(e) => {
             return emit_error_and_return(&window, &format!("Failed to get certificate: {:?}", e));
@@ -58,8 +59,8 @@ pub async fn sideload_ipa(
             "Certificate acquired succesfully".to_string(),
         )
         .ok();
-    let mut list_app_id_response = match account
-        .list_app_ids(icloud_auth::DeveloperDeviceType::Ios, team)
+    let mut list_app_id_response = match dev_session
+        .list_app_ids(DeveloperDeviceType::Ios, team)
         .await
     {
         Ok(ids) => ids,
@@ -137,15 +138,15 @@ pub async fn sideload_ipa(
     for bundle in app_ids_to_register {
         let id = bundle.bundle_identifier().unwrap_or("");
         let name = bundle.bundle_name().unwrap_or("");
-        if let Err(e) = account
+        if let Err(e) = dev_session
             .add_app_id(DeveloperDeviceType::Ios, &team, &id, &name)
             .await
         {
             return emit_error_and_return(&window, &format!("Failed to register app ID: {:?}", e));
         }
     }
-    list_app_id_response = match account
-        .list_app_ids(icloud_auth::DeveloperDeviceType::Ios, team)
+    list_app_id_response = match dev_session
+        .list_app_ids(DeveloperDeviceType::Ios, team)
         .await
     {
         Ok(ids) => ids,
@@ -184,7 +185,7 @@ pub async fn sideload_ipa(
         if !app_group_feature_enabled {
             let mut body = plist::Dictionary::new();
             body.insert("APG3427HIY".to_string(), plist::Value::Boolean(true));
-            let new_features = match account
+            let new_features = match dev_session
                 .update_app_id(DeveloperDeviceType::Ios, &team, &app_id, &body)
                 .await
             {
@@ -209,7 +210,7 @@ pub async fn sideload_ipa(
         );
     }
 
-    let app_groups = match account
+    let app_groups = match dev_session
         .list_application_groups(DeveloperDeviceType::Ios, &team)
         .await
     {
@@ -225,7 +226,7 @@ pub async fn sideload_ipa(
         .collect::<Vec<_>>();
 
     let app_group = if matching_app_groups.is_empty() {
-        match account
+        match dev_session
             .add_application_group(
                 DeveloperDeviceType::Ios,
                 &team,
@@ -248,7 +249,7 @@ pub async fn sideload_ipa(
 
     //let mut provisioning_profiles: HashMap<String, ProvisioningProfile> = HashMap::new();
     for app_id in app_ids {
-        let assign_res = account
+        let assign_res = dev_session
             .assign_application_group_to_app_id(
                 DeveloperDeviceType::Ios,
                 &team,
@@ -285,7 +286,7 @@ pub async fn sideload_ipa(
         .emit("build-output", "Registered app groups".to_string())
         .ok();
 
-    let provisioning_profile = match account
+    let provisioning_profile = match dev_session
         .download_team_provisioning_profile(DeveloperDeviceType::Ios, &team, &main_app_id)
         .await
     {

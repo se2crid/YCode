@@ -2340,7 +2340,6 @@ dependencies = [
  "srp",
  "thiserror 1.0.69",
  "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -7290,6 +7289,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-shell",
  "tauri-plugin-store",
+ "uuid",
  "zip",
 ]
 

@@ -1,7 +1,6 @@
 // This file was made using https://github.com/Dadoum/Sideloader as a reference.
 
 use hex;
-use icloud_auth::{AppleAccount, DeveloperDeviceType, DeveloperTeam};
 use openssl::{
     hash::MessageDigest,
     pkey::{PKey, Private},
@@ -9,7 +8,9 @@ use openssl::{
     x509::{X509Name, X509ReqBuilder, X509},
 };
 use sha1::{Digest, Sha1};
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{fs, path::PathBuf};
+
+use crate::sideloader::developer_session::{DeveloperDeviceType, DeveloperSession, DeveloperTeam};
 
 #[derive(Debug, Clone)]
 pub struct CertificateIdentity {
@@ -22,7 +23,7 @@ pub struct CertificateIdentity {
 impl CertificateIdentity {
     pub async fn new(
         configuration_path: PathBuf,
-        apple_account: &Arc<AppleAccount>,
+        dev_session: &DeveloperSession,
         apple_id: String,
     ) -> Result<Self, String> {
         let mut hasher = Sha1::new();
@@ -34,7 +35,7 @@ impl CertificateIdentity {
 
         let key_file = key_path.join("key.pem");
         let cert_file = key_path.join("cert.pem");
-        let teams = apple_account
+        let teams = dev_session
             .list_teams()
             .await
             .map_err(|e| format!("Failed to list teams: {:?}", e))?;
@@ -65,7 +66,7 @@ impl CertificateIdentity {
         };
 
         if let Ok(cert) = cert_identity
-            .find_matching_certificate(&apple_account, team)
+            .find_matching_certificate(dev_session, team)
             .await
         {
             cert_identity.certificate = Some(cert.clone());
@@ -80,17 +81,17 @@ impl CertificateIdentity {
         }
 
         cert_identity
-            .request_new_certificate(&apple_account, team)
+            .request_new_certificate(dev_session, team)
             .await?;
         Ok(cert_identity)
     }
 
     async fn find_matching_certificate(
         &self,
-        apple_account: &AppleAccount,
+        dev_session: &DeveloperSession,
         team: &DeveloperTeam,
     ) -> Result<X509, String> {
-        let certificates = apple_account
+        let certificates = dev_session
             .list_all_development_certs(DeveloperDeviceType::Ios, team)
             .await
             .map_err(|e| format!("Failed to list certificates: {:?}", e))?;
@@ -119,7 +120,7 @@ impl CertificateIdentity {
 
     async fn request_new_certificate(
         &mut self,
-        apple_account: &AppleAccount,
+        dev_session: &DeveloperSession,
         team: &DeveloperTeam,
     ) -> Result<(), String> {
         let mut req_builder = X509ReqBuilder::new()
@@ -158,7 +159,7 @@ impl CertificateIdentity {
             .to_pem()
             .map_err(|e| format!("Failed to encode CSR: {}", e))?;
 
-        let certificate_id = apple_account
+        let certificate_id = dev_session
             .submit_development_csr(
                 DeveloperDeviceType::Ios,
                 team,
@@ -167,7 +168,7 @@ impl CertificateIdentity {
             .await
             .map_err(|e| format!("Failed to submit CSR: {:?}", e))?;
 
-        let certificates = apple_account
+        let certificates = dev_session
             .list_all_development_certs(DeveloperDeviceType::Ios, team)
             .await
             .map_err(|e| format!("Failed to list certificates: {:?}", e))?;

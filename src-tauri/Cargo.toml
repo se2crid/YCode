@@ -30,6 +30,7 @@ hex = "0.4.3"
 openssl = "0.10"
 plist = { version = "1.7.2" }
 zip = { version = "4.1.0", default-features = false, features = ["deflate"] }
+uuid = "1.17.0"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

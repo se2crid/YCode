@@ -1,4 +1,4 @@
-use icloud_auth::{AnisetteConfiguration, AppleAccount, DeveloperDeviceType, DeveloperTeam};
+use icloud_auth::{AnisetteConfiguration, AppleAccount};
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 use std::{
@@ -10,7 +10,10 @@ use tauri::{Emitter, Listener, Manager};
 use crate::{
     device::DeviceInfo,
     emit_error_and_return,
-    sideloader::apple_commands::{get_stored_credentials, store_credentials},
+    sideloader::{
+        apple_commands::{get_stored_credentials, store_credentials},
+        developer_session::{DeveloperDeviceType, DeveloperSession, DeveloperTeam},
+    },
 };
 
 pub static APPLE_ACCOUNT: OnceCell<Mutex<Option<Arc<AppleAccount>>>> = OnceCell::new();
@@ -32,6 +35,15 @@ pub async fn get_account(
     let mut account_guard = cell.lock().unwrap();
     *account_guard = Some(account.clone());
     Ok(account)
+}
+
+pub async fn get_developer_session(
+    handle: &tauri::AppHandle,
+    window: &tauri::Window,
+    anisette_server: String,
+) -> Result<DeveloperSession, String> {
+    let account = get_account(handle, window, anisette_server).await?;
+    Ok(DeveloperSession::new(account))
 }
 
 pub async fn login(
@@ -174,12 +186,12 @@ pub async fn login(
 }
 
 pub async fn ensure_device_registered(
-    account: &AppleAccount,
+    dev_session: &DeveloperSession,
     window: &tauri::Window,
     team: &DeveloperTeam,
     device: &DeviceInfo,
 ) -> Result<(), String> {
-    let devices = account
+    let devices = dev_session
         .list_devices(DeveloperDeviceType::Ios, team)
         .await
         .map_err(|e| {
@@ -195,7 +207,7 @@ pub async fn ensure_device_registered(
             )
             .ok();
         // TODO: Actually test!
-        account
+        dev_session
             .add_device(DeveloperDeviceType::Ios, team, &device.name, &device.uuid)
             .await
             .map_err(|e| format!("Failed to add device: {:?}", e))?;

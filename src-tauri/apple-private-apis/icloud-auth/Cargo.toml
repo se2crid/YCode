@@ -26,7 +26,6 @@ omnisette = {path = "../omnisette", features = ["remote-anisette-v3"]}
 thiserror = "1.0.58"
 tokio = "1"
 botan = "0.10"
-uuid = "1.17.0"
 chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
