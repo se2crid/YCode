@@ -7,7 +7,12 @@ import MenuBarButton from "./MenuBarButton";
 import MenuGroup, { MenuBarData } from "./MenuGroup";
 import { Shortcut, acceleratorPresssed } from "../../utilities/Shortcut";
 import CommandButton from "../CommandButton";
-import { Construction, PhonelinkSetup, Refresh } from "@mui/icons-material";
+import {
+  Construction,
+  PhonelinkSetup,
+  Refresh,
+  CleaningServices,
+} from "@mui/icons-material";
 import { useParams } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Divider, Option, Select } from "@mui/joy";
@@ -288,6 +293,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
         borderColor: "divider",
         borderBottomWidth: "1px",
         borderBottomStyle: "solid",
+        paddingRight: 0,
       }}
     >
       {bar &&
@@ -331,10 +337,17 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
         ))}
       <CommandButton
         variant="plain"
+        command="clean_theos"
+        icon={<CleaningServices />}
+        parameters={{ folder: path }}
+        sx={{ marginLeft: "auto", marginRight: 0 }}
+      />
+      <CommandButton
+        variant="plain"
         command="build_theos"
         icon={<Construction />}
         parameters={{ folder: path }}
-        sx={{ marginLeft: "auto", marginRight: 0 }}
+        sx={{ marginRight: 0 }}
       />
       <Divider orientation="vertical" />
       <div style={{ display: "flex", alignItems: "center" }}>

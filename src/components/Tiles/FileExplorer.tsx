@@ -18,7 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import { path } from "@tauri-apps/api";
 import * as fs from "@tauri-apps/plugin-fs";
 import { ClickAwayListener } from "@mui/material";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
 interface FileItemProps {
   filePath: string;

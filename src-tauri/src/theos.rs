@@ -215,48 +215,57 @@ pub async fn update_theos(window: tauri::Window) -> Result<(), String> {
     pipe_command(&mut command, window, "update-theos", true).await
 }
 
-pub async fn build_theos_linux(
+pub async fn theos_cmd_linux(
     window: tauri::Window,
     folder: &str,
     emit_exit_code: bool,
+    cmd: &str,
 ) -> Result<(), String> {
     let mut command = Command::new("sh");
     command
         .arg("-c")
-        .arg(format!("cd {} && make package", folder));
+        .arg(format!("cd {} && make {}", folder, cmd));
 
     pipe_command(&mut command, window, "build", emit_exit_code).await
 }
 
-pub async fn build_theos_windows(
+pub async fn theos_cmd_windows(
     window: tauri::Window,
     folder: &str,
     emit_exit_code: bool,
+    cmd: &str,
 ) -> Result<(), String> {
     let mut command = Command::new("wsl");
     command.arg("bash").arg("-ic").arg(format!(
-        "cd {} && make package",
-        windows_to_wsl_path(folder)
+        "cd {} && make {}",
+        windows_to_wsl_path(folder),
+        cmd
     ));
 
     pipe_command(&mut command, window, "build", emit_exit_code).await
 }
 
-async fn build_theos_int(
+async fn theos_cmd(
     window: tauri::Window,
     folder: String,
     emit_exit_code: bool,
+    cmd: &str,
 ) -> Result<(), String> {
     if is_windows() {
-        return build_theos_windows(window, &folder, emit_exit_code).await;
+        return theos_cmd_windows(window, &folder, emit_exit_code, cmd).await;
     } else {
-        return build_theos_linux(window, &folder, emit_exit_code).await;
+        return theos_cmd_linux(window, &folder, emit_exit_code, cmd).await;
     }
 }
 
 #[tauri::command]
 pub async fn build_theos(window: tauri::Window, folder: String) -> Result<(), String> {
-    build_theos_int(window, folder, true).await
+    theos_cmd(window, folder, true, "package").await
+}
+
+#[tauri::command]
+pub async fn clean_theos(window: tauri::Window, folder: String) -> Result<(), String> {
+    theos_cmd(window, folder, true, "clean").await
 }
 
 #[tauri::command]
@@ -274,7 +283,7 @@ pub async fn deploy_theos(
             .map_err(|e| format!("Failed to remove packages directory: {}", e.to_string()))?;
     }
 
-    build_theos_int(window.clone(), folder.clone(), false).await?;
+    theos_cmd(window.clone(), folder.clone(), false, "package").await?;
     window
         .emit("build-output", "App Built Succesfully!".to_string())
         .ok();

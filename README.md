@@ -34,6 +34,8 @@ Coming soon...
 - [ ] Project Templates
 - [ ] Swift LSP Support
 - [ ] UI to change makefile settings
+- [ ] Git integration
+- [ ] Debugging (more research needed)
 - [ ] SwiftPM support (more research needed)
 
 ## What AI did

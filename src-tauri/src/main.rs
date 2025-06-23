@@ -11,8 +11,8 @@ use device::refresh_idevice;
 use sideloader::apple_commands::{delete_stored_credentials, get_apple_email, reset_anisette};
 use tauri::Emitter;
 use theos::{
-    build_theos, deploy_theos, has_theos, has_wsl, install_theos_linux, install_theos_windows,
-    is_windows, update_theos,
+    build_theos, clean_theos, deploy_theos, has_theos, has_wsl, install_theos_linux,
+    install_theos_windows, is_windows, update_theos,
 };
 
 fn main() {
@@ -31,6 +31,7 @@ fn main() {
             has_wsl,
             build_theos,
             deploy_theos,
+            clean_theos,
             refresh_idevice,
             delete_stored_credentials,
             reset_anisette,
