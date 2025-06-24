@@ -362,12 +362,12 @@ pub async fn sideload_ipa(
 
     let zsign_command = handle.shell().sidecar("zsign").unwrap().args([
         "-k",
-        cert.get_private_key_file_path().to_str().unwrap(),
+        &path_to_command_arg(cert.get_private_key_file_path()),
         "-c",
-        cert.get_certificate_file_path().to_str().unwrap(),
+        &path_to_command_arg(cert.get_certificate_file_path()),
         "-m",
-        profile_path.to_str().unwrap(),
-        app.bundle.bundle_dir.to_str().unwrap(),
+        &path_to_command_arg(&profile_path),
+        &path_to_command_arg(&app.bundle.bundle_dir),
     ]);
     let (mut rx, mut _child) = zsign_command.spawn().expect("Failed to spawn zsign");
 
@@ -420,4 +420,8 @@ pub async fn sideload_ipa(
     }
 
     Ok(())
+}
+
+fn path_to_command_arg(path: &std::path::Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
