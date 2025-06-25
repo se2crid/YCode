@@ -5,7 +5,8 @@ import { generalPage } from "./general";
 import { appearancePage } from "./appearance";
 import { appleIdPage } from "./appleId";
 import { certificatesPage } from "./certificates";
-import { editorPage } from "./editor";
+import { appIdsPage } from "./appIds";
+import { developerPage } from "./developer";
 
 const generalCategory: PreferenceCategory = {
   id: "general",
@@ -13,20 +14,20 @@ const generalCategory: PreferenceCategory = {
   pages: [generalPage, appearancePage],
 };
 
-const editorCategory: PreferenceCategory = {
-  id: "editor",
-  name: "Editor",
-  pages: [editorPage],
-};
-
 const appleCategory: PreferenceCategory = {
   id: "apple",
   name: "Apple",
-  pages: [appleIdPage, certificatesPage],
+  pages: [appleIdPage, certificatesPage, appIdsPage],
+};
+
+const advancedCategory: PreferenceCategory = {
+  id: "advanced",
+  name: "Advanced",
+  pages: [developerPage],
 };
 
 preferenceRegistry.registerCategory(generalCategory);
-preferenceRegistry.registerCategory(editorCategory);
 preferenceRegistry.registerCategory(appleCategory);
+preferenceRegistry.registerCategory(advancedCategory);
 
 export { preferenceRegistry };

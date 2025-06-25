@@ -56,13 +56,15 @@ export const createItems = {
     id: string,
     name: string,
     description?: string,
-    defaultValue?: string
+    defaultValue?: string,
+    onChange?: (value: string) => void | Promise<void>
   ): PreferenceItem => ({
     id,
     name,
     description,
     type: "text",
     defaultValue,
+    onChange,
   }),
 
   select: (
@@ -70,7 +72,8 @@ export const createItems = {
     name: string,
     options: Array<{ label: string; value: string }>,
     description?: string,
-    defaultValue?: string
+    defaultValue?: string,
+    onChange?: (value: string) => void | Promise<void>
   ): PreferenceItem => ({
     id,
     name,
@@ -78,19 +81,22 @@ export const createItems = {
     type: "select",
     options,
     defaultValue,
+    onChange,
   }),
 
   checkbox: (
     id: string,
     name: string,
     description?: string,
-    defaultValue?: boolean
+    defaultValue?: boolean,
+    onChange?: (value: boolean) => void | Promise<void>
   ): PreferenceItem => ({
     id,
     name,
     description,
     type: "checkbox",
     defaultValue,
+    onChange,
   }),
 
   button: (
@@ -110,12 +116,14 @@ export const createItems = {
     id: string,
     name: string,
     description?: string,
-    defaultValue?: number
+    defaultValue?: number,
+    onChange?: (value: number) => void | Promise<void>
   ): PreferenceItem => ({
     id,
     name,
     description,
     type: "number",
     defaultValue,
+    onChange,
   }),
 };

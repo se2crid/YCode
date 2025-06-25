@@ -178,7 +178,7 @@ impl AppleAccount {
         let client = ClientBuilder::new()
             .add_root_certificate(Certificate::from_der(APPLE_ROOT)?)
             // uncomment when debugging w/ charles proxy
-            //            .danger_accept_invalid_certs(true)
+            // .danger_accept_invalid_certs(true)
             .http1_title_case_headers()
             .connection_verbose(true)
             .build()?;

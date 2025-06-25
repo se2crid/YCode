@@ -2,7 +2,7 @@ use keyring::{Entry, Error as KeyringError};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
-use crate::sideloader::apple::APPLE_ACCOUNT;
+use crate::sideloader::{apple::APPLE_ACCOUNT, developer_session::ListAppIdsResponse};
 
 pub fn store_credentials(email: &str, password: &str) -> Result<(), KeyringError> {
     let email_entry = Entry::new("y-code", "apple_id_email")?;
@@ -125,5 +125,53 @@ pub async fn revoke_certificate(
         )
         .await
         .map_err(|e| format!("Failed to revoke development certificates: {:?}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_app_ids(
+    handle: tauri::AppHandle,
+    window: tauri::Window,
+    anisette_server: String,
+) -> Result<ListAppIdsResponse, String> {
+    let dev_session =
+        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server.clone())
+            .await?;
+    let team = dev_session
+        .get_team()
+        .await
+        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
+    let app_ids = dev_session
+        .list_app_ids(
+            crate::sideloader::developer_session::DeveloperDeviceType::Ios,
+            &team,
+        )
+        .await
+        .map_err(|e| format!("Failed to list App IDs: {:?}", e))?;
+    Ok(app_ids)
+}
+
+#[tauri::command]
+pub async fn delete_app_id(
+    handle: tauri::AppHandle,
+    window: tauri::Window,
+    anisette_server: String,
+    app_id_id: String,
+) -> Result<(), String> {
+    let dev_session =
+        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server.clone())
+            .await?;
+    let team = dev_session
+        .get_team()
+        .await
+        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
+    dev_session
+        .delete_app_id(
+            crate::sideloader::developer_session::DeveloperDeviceType::Ios,
+            &team,
+            app_id_id,
+        )
+        .await
+        .map_err(|e| format!("Failed to delete App ID: {:?}", e))?;
     Ok(())
 }

@@ -44,6 +44,6 @@ export const appleIdPage = createPreferencePage(
   ],
   {
     description: "Manage your Apple ID authentication",
-    category: "general",
+    category: "apple",
   }
 );

@@ -83,3 +83,8 @@
   height: 50%;
   text-align: center;
 }
+
+.prefs-input {
+  display: flex;
+  align-items: center;
+}

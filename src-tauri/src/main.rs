@@ -9,8 +9,8 @@ mod sideloader;
 
 use device::refresh_idevice;
 use sideloader::apple_commands::{
-    delete_stored_credentials, get_apple_email, get_certificates, reset_anisette,
-    revoke_certificate,
+    delete_app_id, delete_stored_credentials, get_apple_email, get_certificates, list_app_ids,
+    reset_anisette, revoke_certificate,
 };
 use tauri::Emitter;
 use theos::{
@@ -41,6 +41,8 @@ fn main() {
             get_apple_email,
             revoke_certificate,
             get_certificates,
+            list_app_ids,
+            delete_app_id,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

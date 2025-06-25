@@ -119,10 +119,10 @@ pub async fn sideload_ipa(
         .iter()
         .filter(|bundle| {
             let bundle_id = bundle.bundle_identifier().unwrap_or("");
-            list_app_id_response
+            !list_app_id_response
                 .app_ids
                 .iter()
-                .any(|app_id| app_id.app_id_id == bundle_id)
+                .any(|app_id| app_id.identifier == bundle_id)
         })
         .collect::<Vec<_>>();
 
@@ -141,7 +141,7 @@ pub async fn sideload_ipa(
         let id = bundle.bundle_identifier().unwrap_or("");
         let name = bundle.bundle_name().unwrap_or("");
         if let Err(e) = dev_session
-            .add_app_id(DeveloperDeviceType::Ios, &team, &id, &name)
+            .add_app_id(DeveloperDeviceType::Ios, &team, &name, &id)
             .await
         {
             return emit_error_and_return(&window, &format!("Failed to register app ID: {:?}", e));
@@ -166,11 +166,22 @@ pub async fn sideload_ipa(
                 .any(|bundle| app_id.identifier == bundle.bundle_identifier().unwrap_or(""))
         })
         .collect();
-    let main_app_id = app_ids
+    let main_app_id = match app_ids
         .iter()
         .find(|app_id| app_id.identifier == main_app_id_str)
         .cloned()
-        .ok_or("Main app ID not found")?;
+    {
+        Some(id) => id,
+        None => {
+            return emit_error_and_return(
+                &window,
+                &format!(
+                    "Main app ID {} not found in registered app IDs",
+                    main_app_id_str
+                ),
+            );
+        }
+    };
 
     window
         .emit("build-output", "Registered app IDs".to_string())

@@ -16,7 +16,7 @@ const CertificatesComponent = () => {
   let [loading, setLoading] = useState<boolean>(true);
   let [error, setError] = useState<string | null>(null);
   const [anisetteServer] = useStore<string>(
-    "apple id/anisette server",
+    "apple-id/anisette-server",
     "ani.sidestore.io"
   );
   useEffect(() => {
@@ -45,10 +45,18 @@ const CertificatesComponent = () => {
 
   return (
     <ul style={{ margin: 0, padding: 0, listStyleType: "none" }}>
-      {certificates.map((cert) => (
+      {certificates.map((cert, idx) => (
         <li
           key={cert.certificate_id}
-          style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--padding-md)",
+            borderBottom:
+              idx < certificates.length - 1
+                ? "1px solid var(--joy-palette-neutral-800)"
+                : "none",
+          }}
         >
           <Button
             variant="soft"
@@ -98,6 +106,6 @@ export const certificatesPage = createCustomPreferencePage(
   CertificatesComponent,
   {
     description: "Manage your Apple ID certificates",
-    category: "general",
+    category: "apple",
   }
 );

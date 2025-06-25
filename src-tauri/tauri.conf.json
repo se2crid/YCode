@@ -31,8 +31,8 @@
       {
         "title": "YCode",
         "label": "main",
-        "width": 800,
-        "height": 600,
+        "width": 1000,
+        "height": 700,
         "useHttpsScheme": true,
         "visible": false,
         "url": "/onboarding"

@@ -1,5 +1,6 @@
 use icloud_auth::{AppleAccount, Error};
 use plist::{Date, Dictionary, Value};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -364,11 +365,11 @@ impl DeveloperSession {
                 .ok_or(Error::Parse)?;
 
             result.push(AppId {
-                _name: name,
+                name,
                 app_id_id,
                 identifier,
                 features: features.clone(),
-                _expiration_date: expiration_date,
+                expiration_date,
             });
         }
 
@@ -383,7 +384,7 @@ impl DeveloperSession {
 
         Ok(ListAppIdsResponse {
             app_ids: result,
-            _max_quantity: max_quantity,
+            max_quantity,
             available_quantity,
         })
     }
@@ -418,11 +419,12 @@ impl DeveloperSession {
     ) -> Result<Dictionary, Error> {
         let url = dev_url(device_type, "updateAppId");
         let mut body = Dictionary::new();
-        body.insert("teamId".to_string(), Value::String(team.team_id.clone()));
         body.insert(
             "appIdId".to_string(),
-            Value::String(app_id.identifier.clone()),
+            Value::String(app_id.app_id_id.clone()),
         );
+        body.insert("teamId".to_string(), Value::String(team.team_id.clone()));
+
         for (key, value) in features {
             body.insert(key.clone(), value.clone());
         }
@@ -444,15 +446,12 @@ impl DeveloperSession {
         &self,
         device_type: DeveloperDeviceType,
         team: &DeveloperTeam,
-        app_id: &AppId,
+        app_id_id: String,
     ) -> Result<(), Error> {
         let url = dev_url(device_type, "deleteAppId");
         let mut body = Dictionary::new();
         body.insert("teamId".to_string(), Value::String(team.team_id.clone()));
-        body.insert(
-            "appIdId".to_string(),
-            Value::String(app_id.app_id_id.clone()),
-        );
+        body.insert("appIdId".to_string(), Value::String(app_id_id.clone()));
 
         self.send_developer_request(&url, Some(body)).await?;
 
@@ -665,19 +664,19 @@ pub struct DevelopmentCertificate {
     pub cert_content: Vec<u8>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppId {
     pub app_id_id: String,
     pub identifier: String,
-    pub _name: String,
+    pub name: String,
     pub features: Dictionary,
-    pub _expiration_date: Date,
+    pub expiration_date: Date,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListAppIdsResponse {
     pub app_ids: Vec<AppId>,
-    pub _max_quantity: u64,
+    pub max_quantity: u64,
     pub available_quantity: u64,
 }
 

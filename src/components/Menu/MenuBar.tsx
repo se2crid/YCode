@@ -178,7 +178,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
   const { path } = useParams<"path">();
   const { devices } = useIDE();
   const [anisetteServer] = useStore<string>(
-    "apple id/anisette server",
+    "apple-id/anisette-server",
     "ani.sidestore.io"
   );
   const { addToast } = useToast();
