@@ -45,17 +45,13 @@ const CertificatesComponent = () => {
 
   return (
     <ul style={{ margin: 0, padding: 0, listStyleType: "none" }}>
-      {certificates.map((cert, idx) => (
+      {certificates.map((cert) => (
         <li
           key={cert.certificate_id}
           style={{
             display: "flex",
             alignItems: "center",
             gap: "var(--padding-md)",
-            borderBottom:
-              idx < certificates.length - 1
-                ? "1px solid var(--joy-palette-neutral-800)"
-                : "none",
           }}
         >
           <Button

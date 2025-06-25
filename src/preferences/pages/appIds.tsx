@@ -2,7 +2,14 @@ import { createCustomPreferencePage } from "../helpers";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { useStore } from "../../utilities/StoreContext";
-import { Button, Typography } from "@mui/joy";
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionGroup,
+  AccordionSummary,
+  Button,
+  Typography,
+} from "@mui/joy";
 
 type AppId = {
   app_id_id: string;
@@ -63,66 +70,76 @@ const AppIdsComponent = () => {
       <div style={{ marginBottom: "var(--padding-lg)" }}>
         You have {availableQuantity}/{maxQuantity} App IDs available.
       </div>
-      <ul style={{ margin: 0, padding: 0, listStyleType: "none" }}>
-        {ids.map((id, idx) => (
-          <li
-            key={id.app_id_id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--padding-md)",
-              borderBottom:
-                idx < ids.length - 1
-                  ? "1px solid var(--joy-palette-neutral-800)"
-                  : "none",
-            }}
-          >
-            {canDelete && (
-              <Button
-                variant="soft"
-                color="warning"
-                onClick={async () => {
-                  try {
-                    await invoke("delete_app_id", {
-                      anisetteServer,
-                      appIdId: id.app_id_id,
-                    });
-                    setIds((prev) =>
-                      prev.filter((c) => c.app_id_id !== id.app_id_id)
-                    );
-                  } catch (e) {
-                    console.error("Failed to delete app ID:", e);
-                    alert(
-                      "Failed to revoke app ID: " +
-                        e +
-                        "\nPlease try again later."
-                    );
-                  }
-                }}
-              >
-                Delete
-              </Button>
-            )}
-            <div>
+      <AccordionGroup
+        sx={{ margin: 0, padding: 0, width: "calc(100% - var(--padding-xl))" }}
+      >
+        {ids.map((id) => (
+          <Accordion key={id.app_id_id}>
+            <AccordionSummary
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--padding-md)",
+                padding: 0,
+              }}
+            >
+              {canDelete && (
+                <Button
+                  variant="soft"
+                  color="warning"
+                  onClick={async () => {
+                    try {
+                      await invoke("delete_app_id", {
+                        anisetteServer,
+                        appIdId: id.app_id_id,
+                      });
+                      setIds((prev) =>
+                        prev.filter((c) => c.app_id_id !== id.app_id_id)
+                      );
+                    } catch (e) {
+                      console.error("Failed to delete app ID:", e);
+                      alert(
+                        "Failed to revoke app ID: " +
+                          e +
+                          "\nPlease try again later."
+                      );
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+              )}
               <div>
-                {id.name}: {id.app_id_id}
+                <div>
+                  {id.name}: {id.app_id_id}
+                </div>
+                <Typography
+                  level="body-xs"
+                  sx={{ color: "var(--joy-palette-neutral-500)" }}
+                >
+                  {id.identifier}
+                </Typography>
               </div>
-              <Typography
-                level="body-xs"
-                sx={{ color: "var(--joy-palette-neutral-500)" }}
-              >
-                {id.identifier}
-              </Typography>
-            </div>
-            <div style={{ flexGrow: 1, textAlign: "right" }}>
-              <Typography level="body-sm">
-                Expires {new Date(id.expiration_date).toLocaleDateString()}
-              </Typography>
-            </div>
-          </li>
+              <div style={{ flexGrow: 1, textAlign: "right" }}>
+                <Typography level="body-sm">
+                  Expires {new Date(id.expiration_date).toLocaleDateString()}
+                </Typography>
+              </div>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography level="body-md">Features:</Typography>
+              <ul style={{ margin: 0, paddingLeft: "var(--padding-xl)" }}>
+                {Object.entries(id.features).map(([feature, value]) => (
+                  <li key={feature}>
+                    <strong>{feature}:</strong> {JSON.stringify(value)}
+                  </li>
+                ))}
+              </ul>
+            </AccordionDetails>
+          </Accordion>
         ))}
         {ids.length === 0 && <li>No App IDs found.</li>}
-      </ul>
+      </AccordionGroup>
     </div>
   );
 };
