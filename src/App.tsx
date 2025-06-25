@@ -8,7 +8,6 @@ import Preferences from "./preferences/Preferences";
 import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router";
 import { StoreProvider, useStore } from "./utilities/StoreContext";
 import { IDEProvider } from "./utilities/IDEContext";
-import Splash from "./pages/Splash";
 import { CommandProvider } from "./utilities/Command";
 import { ToastProvider } from "react-toast-plus";
 
@@ -81,7 +80,6 @@ const App = () => {
               </Route>
 
               <Route path="/preferences/:page?" element={<Preferences />} />
-              <Route path="/splashscreen" element={<Splash />} />
             </Routes>
           </Sheet>
         </StoreProvider>

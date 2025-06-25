@@ -35,12 +35,12 @@
         "height": 600,
         "useHttpsScheme": true,
         "visible": false,
-        "url": "/ide/%2Fhome%2Fnicholas%2FDocuments%2Fcoding%2FVeoIOS"
+        "url": "/onboarding"
       },
       {
         "title": "YCode (Loading)",
         "label": "splashscreen",
-        "url": "/splashscreen",
+        "url": "/splash.html",
         "width": 200,
         "height": 250,
         "resizable": false,
