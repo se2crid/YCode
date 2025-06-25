@@ -1,5 +1,5 @@
 .onboarding {
-  padding: var(--padding-md) var(--padding-lg);
+  padding: var(--padding-lg);
 }
 
 .onboarding h1,
@@ -7,6 +7,31 @@
   margin: 0;
 }
 
-.onboarding .header {
-  margin-bottom: 20px;
+.onboarding-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--padding-lg);
+  gap: var(--padding-lg);
+}
+
+.onboarding-buttons {
+  display: flex;
+  gap: var(--padding-lg);
+  margin-bottom: var(--padding-lg);
+}
+
+.onboarding-logo {
+  width: 6rem;
+  height: 6rem;
+}
+
+.onboarding-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-lg);
+  margin-top: var(--padding-lg);
+}
+
+.disabled-button {
+  cursor: not-allowed;
 }
