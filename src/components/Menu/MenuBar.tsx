@@ -116,9 +116,9 @@ const bar = [
               const appWindow = new WebviewWindow("prefs", {
                 title: "Preferences",
                 resizable: false,
-                width: 600,
-                height: 400,
-                url: "/preferences",
+                width: 800,
+                height: 600,
+                url: "/preferences/general",
               });
               appWindow.once("tauri://created", function () {
                 appWindow.center();

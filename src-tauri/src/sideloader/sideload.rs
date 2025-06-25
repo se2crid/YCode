@@ -22,7 +22,7 @@ pub async fn sideload_ipa(
     if device.uuid.is_empty() {
         return emit_error_and_return(&window, "No device selected");
     }
-    let mut dev_session = match crate::sideloader::apple::get_developer_session(
+    let dev_session = match crate::sideloader::apple::get_developer_session(
         &handle,
         &window,
         anisette_server.clone(),
@@ -37,54 +37,16 @@ pub async fn sideload_ipa(
             );
         }
     };
-
-    let teams = match dev_session.list_teams().await {
+    let team = match dev_session.get_team().await {
         Ok(t) => t,
         Err(e) => {
-            // This code means we have been logged in for too long and we must relogin again
-            let is_22411 = match &e {
-                icloud_auth::Error::AuthSrpWithMessage(code, _) => *code == -22411,
-                _ => false,
-            };
-            if is_22411 {
-                crate::sideloader::apple::invalidate_account();
-                dev_session = match crate::sideloader::apple::get_developer_session(
-                    &handle,
-                    &window,
-                    anisette_server,
-                )
-                .await
-                {
-                    Ok(acc) => acc,
-                    Err(e) => {
-                        return emit_error_and_return(
-                            &window,
-                            &format!(
-                                "Failed to login to Apple account after invalidation: {:?}",
-                                e
-                            ),
-                        );
-                    }
-                };
-                match dev_session.list_teams().await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        return emit_error_and_return(
-                            &window,
-                            &format!("Failed to list teams after invalidation: {:?}", e),
-                        );
-                    }
-                }
-            } else {
-                return emit_error_and_return(&window, &format!("Failed to list teams: {:?}", e));
-            }
+            return emit_error_and_return(&window, &format!("Failed to get team: {:?}", e));
         }
     };
-    let team = &teams[0];
     window
         .emit("build-output", "Successfully retrieved team".to_string())
         .ok();
-    ensure_device_registered(&dev_session, &window, team, &device).await?;
+    ensure_device_registered(&dev_session, &window, &team, &device).await?;
 
     let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
     let cert = match CertificateIdentity::new(config_dir, &dev_session, get_apple_email()).await {
@@ -100,7 +62,7 @@ pub async fn sideload_ipa(
         )
         .ok();
     let mut list_app_id_response = match dev_session
-        .list_app_ids(DeveloperDeviceType::Ios, team)
+        .list_app_ids(DeveloperDeviceType::Ios, &team)
         .await
     {
         Ok(ids) => ids,
@@ -186,7 +148,7 @@ pub async fn sideload_ipa(
         }
     }
     list_app_id_response = match dev_session
-        .list_app_ids(DeveloperDeviceType::Ios, team)
+        .list_app_ids(DeveloperDeviceType::Ios, &team)
         .await
     {
         Ok(ids) => ids,
@@ -362,12 +324,12 @@ pub async fn sideload_ipa(
 
     let zsign_command = handle.shell().sidecar("zsign").unwrap().args([
         "-k",
-        &path_to_command_arg(cert.get_private_key_file_path()),
+        cert.get_private_key_file_path().to_str().unwrap(),
         "-c",
-        &path_to_command_arg(cert.get_certificate_file_path()),
+        cert.get_certificate_file_path().to_str().unwrap(),
         "-m",
-        &path_to_command_arg(&profile_path),
-        &path_to_command_arg(&app.bundle.bundle_dir),
+        profile_path.to_str().unwrap(),
+        app.bundle.bundle_dir.to_str().unwrap(),
     ]);
     let (mut rx, mut _child) = zsign_command.spawn().expect("Failed to spawn zsign");
 
@@ -420,8 +382,4 @@ pub async fn sideload_ipa(
     }
 
     Ok(())
-}
-
-fn path_to_command_arg(path: &std::path::Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
 }

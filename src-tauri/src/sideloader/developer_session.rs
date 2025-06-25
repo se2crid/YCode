@@ -5,11 +5,15 @@ use uuid::Uuid;
 
 pub struct DeveloperSession {
     pub account: Arc<AppleAccount>,
+    team: Option<DeveloperTeam>,
 }
 
 impl DeveloperSession {
     pub fn new(account: Arc<AppleAccount>) -> Self {
-        DeveloperSession { account }
+        DeveloperSession {
+            account,
+            team: None,
+        }
     }
 
     pub async fn send_developer_request(
@@ -102,6 +106,25 @@ impl DeveloperSession {
             });
         }
         Ok(result)
+    }
+
+    pub async fn get_team(&self) -> Result<DeveloperTeam, Error> {
+        if let Some(team) = &self.team {
+            return Ok(team.clone());
+        }
+        let teams = self.list_teams().await?;
+        if teams.is_empty() {
+            return Err(Error::AuthSrpWithMessage(
+                -1,
+                "No developer teams found".to_string(),
+            ));
+        }
+        // TODO: Handle multiple teams
+        Ok(teams[0].clone())
+    }
+
+    pub fn set_team(&mut self, team: DeveloperTeam) {
+        self.team = Some(team);
     }
 
     pub async fn list_devices(
@@ -235,9 +258,9 @@ impl DeveloperSession {
                 .to_vec();
 
             result.push(DevelopmentCertificate {
-                _name: name,
+                name: name,
                 certificate_id,
-                _serial_number: serial_number,
+                serial_number: serial_number,
                 machine_name: machine_name,
                 cert_content,
             });
@@ -635,9 +658,9 @@ pub struct DeveloperTeam {
 
 #[derive(Debug, Clone)]
 pub struct DevelopmentCertificate {
-    pub _name: String,
+    pub name: String,
     pub certificate_id: String,
-    pub _serial_number: String,
+    pub serial_number: String,
     pub machine_name: String,
     pub cert_content: Vec<u8>,
 }

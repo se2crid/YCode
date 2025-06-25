@@ -166,7 +166,17 @@ impl CertificateIdentity {
                 String::from_utf8_lossy(&csr_pem).to_string(),
             )
             .await
-            .map_err(|e| format!("Failed to submit CSR: {:?}", e))?;
+            .map_err(|e| {
+                let is_7460 = match &e {
+                    icloud_auth::Error::AuthSrpWithMessage(code, _) => *code == 7460,
+                    _ => false,
+                };
+                if is_7460 {
+                    "You have too many certificates, revoke one in Edit > Preferences > Certificates.".to_string()
+                } else {
+                    format!("Failed to submit CSR: {:?}", e)
+                }
+            })?;
 
         let certificates = dev_session
             .list_all_development_certs(DeveloperDeviceType::Ios, team)

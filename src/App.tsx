@@ -1,9 +1,10 @@
 import { CssVarsProvider, extendTheme } from "@mui/joy/styles";
 import { Sheet } from "@mui/joy";
 import "@fontsource/inter";
+import "@fontsource/inter/600.css";
 import Onboarding from "./pages/Onboarding";
 import IDE from "./pages/IDE";
-import Prefs from "./pages/Prefs";
+import Preferences from "./preferences/Preferences";
 import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router";
 import { StoreProvider, useStore } from "./utilities/StoreContext";
 import { IDEProvider } from "./utilities/IDEContext";
@@ -79,7 +80,7 @@ const App = () => {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
 
-              <Route path="/preferences/:page?" element={<Prefs />} />
+              <Route path="/preferences/:page?" element={<Preferences />} />
               <Route path="/splashscreen" element={<Splash />} />
             </Routes>
           </Sheet>

@@ -42,8 +42,37 @@ pub async fn get_developer_session(
     window: &tauri::Window,
     anisette_server: String,
 ) -> Result<DeveloperSession, String> {
-    let account = get_account(handle, window, anisette_server).await?;
-    Ok(DeveloperSession::new(account))
+    let account = get_account(handle, window, anisette_server.clone()).await?;
+
+    let mut dev_session = DeveloperSession::new(account);
+
+    let teams = match dev_session.list_teams().await {
+        Ok(t) => t,
+        Err(e) => {
+            // This code means we have been logged in for too long and we must relogin again
+            let is_22411 = match &e {
+                icloud_auth::Error::AuthSrpWithMessage(code, _) => *code == -22411,
+                _ => false,
+            };
+            if is_22411 {
+                crate::sideloader::apple::invalidate_account();
+                let account = get_account(handle, window, anisette_server).await?;
+                dev_session = DeveloperSession::new(account);
+                match dev_session.list_teams().await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return Err(format!("Failed to list teams after re-login: {:?}", e));
+                    }
+                }
+            } else {
+                return Err(format!("Failed to list teams: {:?}", e));
+            }
+        }
+    };
+
+    dev_session.set_team(teams[0].clone());
+
+    Ok(dev_session)
 }
 
 pub async fn login(
