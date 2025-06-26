@@ -25,7 +25,7 @@ reqwest = { version = "0.11.14", features = ["blocking", "json", "default-tls"] 
 omnisette = {path = "../omnisette", features = ["remote-anisette-v3"]}
 thiserror = "1.0.58"
 tokio = "1"
-botan = "0.10"
+botan = { version = "0.11.1", features = ["vendored"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
