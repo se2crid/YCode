@@ -4,12 +4,16 @@ iOS Development IDE for linux and windows, built with [Tauri](https://tauri.app/
 
 Coming soon...
 
+## Installation
+
+YCode is currently in development and not recommended for use. However, if you want to try it out, your feedback would be greatly appreciated!
+
 ## How it works
 
 - [Theos](https://theos.dev/) is used to build the project into an IPA.
-- [apple-private-apis](https://github.com/SideStore/apple-private-apis) is used to login to the Apple Account. Heavy additions have been made to support actually accessing the Developer APIs\
+- [apple-private-apis](https://github.com/SideStore/apple-private-apis) is used to login to the Apple Account. Heavy additions have been made to support actually accessing the Developer APIs
 - [ZSign](https://github.com/zhlynn/zsign) is used to sign the IPA.
-- [idevice](https://github.com/jkcoxson/idevice) (will be) used to install the IPA on the device.
+- [idevice](https://github.com/jkcoxson/idevice) is used to install the IPA on the device.
 
 - [Sideloader](https://github.com/Dadoum/Sideloader) has been heavily used as a reference for the implementation of the Apple Developer APIs and sideloading process.
 
