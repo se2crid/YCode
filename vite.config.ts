@@ -32,4 +32,12 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        index: "./index.html",
+        splash: "./splash.html",
+      },
+    },
+  },
 }));
