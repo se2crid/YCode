@@ -5,6 +5,7 @@ import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
 import RunCommand from "../components/RunCommand";
 import { useIDE } from "../utilities/IDEContext";
 import logo from "../assets/logo.png";
+import { useNavigate } from "react-router";
 
 export interface OnboardingProps {}
 
@@ -13,6 +14,7 @@ export default ({}: OnboardingProps) => {
   const [ready, setReady] = useState(false);
   const [updatingTheos, setUpdatingTheos] = useState(false);
   const [installingTheos, setInstallingTheos] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (hasTheos !== null && isWindows !== null && hasWSL !== null) {
@@ -55,11 +57,15 @@ export default ({}: OnboardingProps) => {
       <div className="onboarding-buttons">
         <Button
           size="lg"
-          // disabled={!ready}
-          disabled
+          disabled={!ready}
           className={!hasTheos ? "disabled-button" : ""}
+          onClick={() => {
+            if (ready) {
+              navigate("/new");
+            }
+          }}
         >
-          Create New (Coming Soon)
+          Create New
         </Button>
         <Button size="lg" disabled={!ready} onClick={openFolderDialog}>
           Open Project

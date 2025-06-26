@@ -10,6 +10,8 @@ import { StoreProvider, useStore } from "./utilities/StoreContext";
 import { IDEProvider } from "./utilities/IDEContext";
 import { CommandProvider } from "./utilities/Command";
 import { ToastProvider } from "react-toast-plus";
+import New from "./pages/New";
+import NewTemplate from "./pages/NewTemplate";
 
 declare module "@mui/joy/IconButton" {
   interface IconButtonPropsSizeOverrides {
@@ -76,6 +78,8 @@ const App = () => {
               <Route element={<IDELayout />}>
                 <Route index element={<Onboarding />} />
                 <Route path="/ide/:path" element={<IDE />} />
+                <Route path="/new" element={<New />} />
+                <Route path="/new/:template" element={<NewTemplate />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
 

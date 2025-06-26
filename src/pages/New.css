@@ -1,0 +1,32 @@
+.new-templates-container {
+  display: flex;
+  gap: var(--padding-lg);
+  flex-wrap: wrap;
+}
+
+.new-template-card {
+  width: 400px;
+  transition: filter 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.new-template-card:hover {
+  filter: brightness(0.8);
+}
+
+.new-template-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-sm);
+  width: 100%;
+}
+.new-template-field {
+  display: flex;
+  align-items: center;
+  gap: var(--padding-lg);
+  width: 100%;
+}
+
+.new-template-field-input {
+  flex-grow: 1;
+}
