@@ -5,6 +5,8 @@
 mod theos;
 #[macro_use]
 mod device;
+#[macro_use]
+mod templates;
 mod sideloader;
 
 use device::refresh_idevice;
@@ -13,6 +15,7 @@ use sideloader::apple_commands::{
     reset_anisette, revoke_certificate,
 };
 use tauri::Emitter;
+use templates::create_template;
 use theos::{
     build_theos, clean_theos, deploy_theos, has_theos, has_wsl, install_theos_linux,
     install_theos_windows, is_windows, update_theos,
@@ -43,6 +46,7 @@ fn main() {
             get_certificates,
             list_app_ids,
             delete_app_id,
+            create_template,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

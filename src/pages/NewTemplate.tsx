@@ -6,6 +6,8 @@ import { templates } from "../utilities/templates";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@mui/joy";
+import { invoke } from "@tauri-apps/api/core";
+import { useToast } from "react-toast-plus";
 
 export default () => {
   const navigate = useNavigate();
@@ -15,14 +17,12 @@ export default () => {
     return <Navigate to="/new" replace />;
   }
   const template = templates.find((t) => t.id === templateId);
+  const { addToast } = useToast();
   if (!template) return <Navigate to="/new" replace />;
 
   const [form, setForm] = useState(
     Object.fromEntries(
-      Object.entries(template.fields).map(([key, field]) => [
-        key,
-        field.default,
-      ])
+      Object.entries(template.fields).map(([key]) => [key, ""])
     )
   );
 
@@ -30,10 +30,20 @@ export default () => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(form);
-    alert("This isn't implemented yet :(");
+    try {
+      let path = await invoke<string>("create_template", {
+        template: templateId,
+        name: form.projectName || template.name,
+        parameters: form,
+      });
+      if (path) {
+        navigate(`/ide/${encodeURIComponent(path)}`);
+      }
+    } catch (error) {
+      addToast.error("Failed to create project: " + error);
+    }
   };
 
   return (

@@ -59,7 +59,11 @@ export default () => {
         ))}
       </div>
 
-      <Button onClick={() => navigate("/")} variant="outlined">
+      <Button
+        sx={{ width: "fit-content" }}
+        onClick={() => navigate("/")}
+        variant="outlined"
+      >
         Back to Home
       </Button>
     </div>

@@ -5,8 +5,9 @@
 }
 
 .new-template-card {
-  min-width: 400px;
+  max-width: 500px;
   flex-grow: 1;
+  flex-basis: 400px;
   cursor: pointer;
 }
 

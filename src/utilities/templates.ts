@@ -48,32 +48,4 @@ export const templates: Template[] = [
       },
     },
   },
-  {
-    name: "Test",
-    description: "A test template for demonstration purposes",
-    id: "test",
-    version: "1.0.0",
-    fields: {
-      projectName: {
-        type: "text",
-        label: "Project Name",
-        default: "MySwiftUIApp",
-      },
-      bundleId: {
-        type: "text",
-        label: "Bundle Identifier",
-        default: "com.example.MySwiftUIApp",
-      },
-      projectDescription: {
-        type: "text",
-        label: "Project Description",
-        default: "A basic SwiftUI application.",
-      },
-      author: {
-        type: "text",
-        label: "Author",
-        default: "Your Name",
-      },
-    },
-  },
 ];
