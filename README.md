@@ -1,5 +1,7 @@
 # YCode
 
+[![Build YCode](https://github.com/nab138/YCode/actions/workflows/build.yml/badge.svg)](https://github.com/nab138/YCode/actions/workflows/build.yml)
+
 iOS Development IDE for linux and windows, built with [Tauri](https://tauri.app/).
 
 Coming soon...
@@ -7,6 +9,8 @@ Coming soon...
 ## Installation
 
 YCode is currently in development and not recommended for use. However, if you want to try it out, your feedback would be greatly appreciated!
+
+You can download the latest build from [actions](https://github.com/nab138/YCode/actions/workflows/build.yml)
 
 ## How it works
 

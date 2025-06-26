@@ -33,9 +33,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Setup vcpkg
+        if: matrix.platform == 'windows-latest'
+        run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Install Windows dependencies
         if: matrix.platform == 'windows-latest'
         run: vcpkg install openssl:x64-windows-static-md
+
+      - name: Add MSVC to PATH
+        if: matrix.platform == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install frontend dependencies
         run: bun install
@@ -44,20 +52,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux binaries
+      - name: Upload Linux DEB
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'ubuntu-22.04'
         with:
-          name: binaries-linux
-          path: |
-            ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.deb
-            ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.rpm
-            ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.AppImage
+          name: linux-deb
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.deb
 
-      - name: Upload Windows binary
+      - name: Upload Linux RPM
+        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'ubuntu-22.04'
+        with:
+          name: linux-rpm
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.rpm
+
+      - name: Upload Linux AppImage
+        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'ubuntu-22.04'
+        with:
+          name: linux-appimage
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.AppImage
+
+      - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'windows-latest'
         with:
-          name: binaries-windows
+          name: windows-exe
           path: |
             ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.exe
