@@ -33,6 +33,25 @@ export default ({}: OnboardingProps) => {
           </Typography>
         </div>
       </div>
+      <div>
+        <Typography level="h3" className="onboarding-version" color="warning">
+          ⚠️ Early Access Version ⚠️
+        </Typography>
+        <Typography level="body-md">
+          This is an early access version of YCode. Expect bugs. Please report
+          any issues you find on{" "}
+          <Link
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              open("https://github.com/nab138/ycode/issues");
+            }}
+          >
+            github
+          </Link>
+          .
+        </Typography>
+      </div>
       <div className="onboarding-buttons">
         <Button
           size="lg"

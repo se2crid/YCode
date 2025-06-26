@@ -10,7 +10,7 @@ Coming soon...
 
 YCode is currently in development and not recommended for use. However, if you want to try it out, your feedback would be greatly appreciated!
 
-You can download the latest build from [actions](https://github.com/nab138/YCode/actions/workflows/build.yml)
+You can download the latest build from [actions](https://github.com/nab138/YCode/actions/workflows/build.yml).
 
 ## How it works
 

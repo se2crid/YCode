@@ -1,5 +1,8 @@
 .onboarding {
   padding: var(--padding-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-lg);
 }
 
 .onboarding h1,
@@ -10,14 +13,12 @@
 .onboarding-header {
   display: flex;
   align-items: center;
-  margin-bottom: var(--padding-lg);
   gap: var(--padding-lg);
 }
 
 .onboarding-buttons {
   display: flex;
   gap: var(--padding-lg);
-  margin-bottom: var(--padding-lg);
 }
 
 .onboarding-logo {
@@ -29,7 +30,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--padding-lg);
-  margin-top: var(--padding-lg);
 }
 
 .disabled-button {
