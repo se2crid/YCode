@@ -5,7 +5,8 @@
 }
 
 .new-template-card {
-  width: 400px;
+  min-width: 400px;
+  flex-grow: 1;
   transition: filter 0.2s ease-in-out;
   cursor: pointer;
 }

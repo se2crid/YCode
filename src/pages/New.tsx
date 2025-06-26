@@ -1,6 +1,7 @@
 import logo from "../assets/logo.png";
 import {
   AspectRatio,
+  Button,
   Card,
   CardContent,
   CardOverflow,
@@ -30,7 +31,7 @@ export default () => {
           <Card key={template.id} className="new-template-card">
             {template.image && (
               <CardOverflow>
-                <AspectRatio ratio="2.25">
+                <AspectRatio ratio="2">
                   <img src={template.image} alt={template.name} />
                 </AspectRatio>
               </CardOverflow>
@@ -57,6 +58,10 @@ export default () => {
           </Card>
         ))}
       </div>
+
+      <Button onClick={() => navigate("/")} variant="outlined">
+        Back to Home
+      </Button>
     </div>
   );
 };
