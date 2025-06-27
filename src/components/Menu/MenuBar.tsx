@@ -134,6 +134,15 @@ const bar = [
     label: "View",
     items: [
       {
+        label: "Navigation",
+        items: [
+          {
+            name: "Show Welcome Page",
+            callbackName: "welcomePage",
+          },
+        ],
+      },
+      {
         label: "Debug",
         items: [
           {

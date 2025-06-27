@@ -32,6 +32,7 @@ export default () => {
       save: saveFile ?? (() => {}),
       openFolderDialog,
       newProject: () => navigate("/new"),
+      welcomePage: () => navigate("/"),
     });
   }, [saveFile]);
 
