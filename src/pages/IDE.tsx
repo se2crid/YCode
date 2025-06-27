@@ -7,7 +7,7 @@ import MenuBar from "../components/Menu/MenuBar";
 import "./IDE.css";
 import Console from "../components/Tiles/Console";
 import { useStore } from "../utilities/StoreContext";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { useIDE } from "../utilities/IDEContext";
 
 export interface IDEProps {}
@@ -25,11 +25,13 @@ export default () => {
   }
 
   const [callbacks, setCallbacks] = useState<Record<string, () => void>>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     setCallbacks({
       save: saveFile ?? (() => {}),
       openFolderDialog,
+      newProject: () => navigate("/new"),
     });
   }, [saveFile]);
 

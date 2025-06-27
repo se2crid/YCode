@@ -58,10 +58,24 @@ pub async fn create_template(
         if path.is_file() {
             let mut content = std::fs::read_to_string(path)
                 .map_err(|e| format!("Failed to read file '{}': {}", path.display(), e))?;
+
+            let mut filename = path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or("".to_string());
+
             for (key, value) in &parameters {
                 content = content.replace(&format!("{{{{{}}}}}", key), value);
+                if filename.contains(&format!("{{{{{}}}}}", key)) {
+                    filename = filename.replace(&format!("{{{{{}}}}}", key), value);
+                    let new_path = path.with_file_name(&filename);
+                    std::fs::rename(path, &new_path).map_err(|e| {
+                        format!("Failed to rename file '{}': {}", path.display(), e)
+                    })?;
+                }
             }
-            std::fs::write(&path, content)
+            let final_path = path.with_file_name(&filename);
+            std::fs::write(&final_path, content)
                 .map_err(|e| format!("Failed to write file '{}': {}", path.display(), e))?;
         }
     }

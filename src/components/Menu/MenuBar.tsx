@@ -36,9 +36,7 @@ const bar = [
           },
           {
             name: "New Project...",
-            callback: () => {
-              console.log("New Project!");
-            },
+            callbackName: "newProject",
           },
         ],
       },

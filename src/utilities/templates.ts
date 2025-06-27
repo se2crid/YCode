@@ -1,4 +1,5 @@
 import swiftui from "../assets/swiftui.png";
+import uikit from "../assets/uikit.png";
 
 export interface TemplateField {
   type: string;
@@ -17,35 +18,48 @@ export interface Template {
   };
 }
 
+const defaultFields = {
+  projectName: {
+    type: "text",
+    label: "Project Name",
+    default: "MyProject",
+  },
+  bundleId: {
+    type: "text",
+    label: "Bundle Identifier",
+    default: "com.example.myproject",
+  },
+  projectDescription: {
+    type: "text",
+    label: "Project Description",
+    default: "An awesome application",
+  },
+  author: {
+    type: "text",
+    label: "Author",
+    default: "Steve Jobs",
+  },
+};
+
 export const templates: Template[] = [
   {
     name: "Basic SwiftUI Application",
-    description:
-      "A barebones SwiftUI application template to get you started quickly",
+    description: "A barebones SwiftUI template to get you started quickly",
     image: swiftui,
     id: "swiftui",
     version: "1.0.0",
     fields: {
-      projectName: {
-        type: "text",
-        label: "Project Name",
-        default: "MySwiftUIApp",
-      },
-      bundleId: {
-        type: "text",
-        label: "Bundle Identifier",
-        default: "com.example.myswiftuiapp",
-      },
-      projectDescription: {
-        type: "text",
-        label: "Project Description",
-        default: "A basic SwiftUI application",
-      },
-      author: {
-        type: "text",
-        label: "Author",
-        default: "Your Name",
-      },
+      ...defaultFields,
+    },
+  },
+  {
+    name: "Basic UIKit Application",
+    description: "A barebones UIKit template to get you started quickly",
+    image: uikit,
+    id: "uikit",
+    version: "1.0.0",
+    fields: {
+      ...defaultFields,
     },
   },
 ];
