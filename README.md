@@ -40,7 +40,7 @@ You can download the latest build from [actions](https://github.com/nab138/YCode
 - [x] Rudimentary File Browser
 - [x] Code editor (monaco editor)
 - [x] Project Creation
-- [ ] Project Templates
+- [x] Project Templates
 - [ ] Swift LSP Support
 - [ ] UI to change makefile settings
 - [ ] Git integration
