@@ -131,7 +131,6 @@ pub async fn has_theos() -> bool {
             return false;
         }
 
-        // Checks that $THEOS is set in wsl and that the directory contains theos's files
         // For some reason, without cmd /C the command doesn't work properly. I'm guessing its some sort of quoting issue but I couldn't figure it out.
         let output = Command::new("cmd")
             .args(&["/C", r#"wsl bash -ic 'test -d $THEOS/extras ; echo $?'"#])
@@ -143,9 +142,19 @@ pub async fn has_theos() -> bool {
 
         return stdout.trim() == "0";
     }
-    // On linux, can just check if $THEOS is set and the directory exists (i love linux)
     if let Ok(theos) = std::env::var("THEOS") {
-        return std::path::Path::new(&theos).exists();
+        let path = std::path::Path::new(&theos);
+        if path.exists() && path.is_dir() {
+            return true;
+        }
+    }
+    let home_dir = match std::env::var("HOME") {
+        Ok(home) => home,
+        Err(_) => return false,
+    };
+    let theos_path = std::path::Path::new(&home_dir).join("theos");
+    if theos_path.exists() && theos_path.is_dir() {
+        return true;
     }
     false
 }
