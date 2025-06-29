@@ -8,6 +8,7 @@ mod device;
 #[macro_use]
 mod templates;
 mod sideloader;
+mod swift;
 
 use device::refresh_idevice;
 use sideloader::apple_commands::{
@@ -20,6 +21,8 @@ use theos::{
     build_theos, clean_theos, deploy_theos, has_theos, has_wsl, install_theos_linux,
     install_theos_windows, is_windows, update_theos,
 };
+
+use crate::swift::{get_swiftly_toolchains, get_toolchain_version, validate_toolchain};
 
 fn main() {
     tauri::Builder::default()
@@ -47,6 +50,9 @@ fn main() {
             list_app_ids,
             delete_app_id,
             create_template,
+            get_swiftly_toolchains,
+            validate_toolchain,
+            get_toolchain_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

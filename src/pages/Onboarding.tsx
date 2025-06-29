@@ -1,28 +1,61 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
 import "./Onboarding.css";
-import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
-import RunCommand from "../components/RunCommand";
-import { useIDE } from "../utilities/IDEContext";
+import {
+  Button,
+  Card,
+  CardContent,
+  Divider,
+  FormControl,
+  Link,
+  Radio,
+  RadioGroup,
+  Typography,
+} from "@mui/joy";
+import { Toolchain, useIDE } from "../utilities/IDEContext";
 import logo from "../assets/logo.png";
 import { useNavigate } from "react-router";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export interface OnboardingProps {}
 
 export default ({}: OnboardingProps) => {
-  const { hasTheos, hasWSL, isWindows, openFolderDialog } = useIDE();
+  const {
+    selectedToolchain,
+    setSelectedToolchain,
+    toolchains,
+    scanToolchains,
+    hasWSL,
+    isWindows,
+    openFolderDialog,
+    locateToolchain,
+  } = useIDE();
   const [ready, setReady] = useState(false);
-  const [updatingTheos, setUpdatingTheos] = useState(false);
-  const [installingTheos, setInstallingTheos] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (hasTheos !== null && isWindows !== null && hasWSL !== null) {
-      setReady(hasTheos && (isWindows ? hasWSL : true));
+    if (toolchains !== null && isWindows !== null && hasWSL !== null) {
+      setReady(selectedToolchain !== null && (isWindows ? hasWSL : true));
     } else {
       setReady(false);
     }
-  }, [hasTheos, hasWSL, isWindows]);
+  }, [selectedToolchain, toolchains, hasWSL, isWindows]);
+
+  let allToolchains = useMemo(() => {
+    let all: Toolchain[] = [];
+    if (toolchains !== null && toolchains.toolchains) {
+      all = [...toolchains.toolchains];
+    }
+    if (
+      selectedToolchain &&
+      !all.some(
+        (t) => stringifyToolchain(t) === stringifyToolchain(selectedToolchain)
+      )
+    ) {
+      all.push(selectedToolchain);
+    }
+    return all;
+  }, [selectedToolchain, toolchains]);
 
   return (
     <div className="onboarding">
@@ -58,7 +91,7 @@ export default ({}: OnboardingProps) => {
         <Button
           size="lg"
           disabled={!ready}
-          className={!hasTheos ? "disabled-button" : ""}
+          className={!ready ? "disabled-button" : ""}
           onClick={() => {
             if (ready) {
               navigate("/new");
@@ -110,7 +143,7 @@ export default ({}: OnboardingProps) => {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        open(
+                        openUrl(
                           "https://learn.microsoft.com/en-us/windows/wsl/install"
                         );
                       }}
@@ -125,89 +158,113 @@ export default ({}: OnboardingProps) => {
           </Card>
         )}
         <Card variant="soft">
-          <Typography level="h3">Theos</Typography>
+          <Typography level="h3">Swift</Typography>
           <Typography level="body-sm">
-            Theos is a cross-platform suite of tools for building software for
-            iOS. It is the core of YCode. Learn more about theos at{" "}
-            <Link
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://theos.dev");
-              }}
-            >
-              theos.dev
-            </Link>
-            .
+            You will need a Swift toolchain to use YCode. It is recommended to
+            install it using swiftly, but you can also install it manually.
           </Typography>
           <Divider />
           <CardContent>
-            <Typography level="body-md">
-              {hasTheos === null
-                ? "Checking for Theos..."
-                : hasTheos
-                ? "Theos is already installed on your system!"
-                : "Theos is not installed on your system."}
+            <Typography level="body-sm">
+              {toolchains === null
+                ? "Checking for Swift..."
+                : toolchains.swiftlyInstalled
+                ? `Swiftly Detected: ${toolchains.swiftlyVersion}`
+                : "YCode was unable to detect Swiftly."}
             </Typography>
-            {hasTheos === true && (
-              <Typography level="body-xs">
-                If you manually installed theos without installing
-                https://github.com/kabiroberai/swift-toolchain-linux/, please
-                delete $THEOS/toolchain and press reinstall.
+            {toolchains !== null && allToolchains.length === 0 && (
+              <Typography
+                level="body-md"
+                style={{ marginBottom: "var(--padding-md)" }}
+                color="warning"
+              >
+                No Swift toolchains found. You can install one using "
+                <span
+                  style={{
+                    fontFamily: "monospace",
+                  }}
+                >
+                  swiftly install latest
+                </span>
+                " or manually.
               </Typography>
+            )}
+            {toolchains !== null && allToolchains.length > 0 && (
+              <>
+                <Typography level="body-md">Select a toolchain:</Typography>
+                <RadioGroup
+                  value={stringifyToolchain(selectedToolchain)}
+                  sx={{
+                    marginTop: "var(--padding-xs)",
+                  }}
+                >
+                  {allToolchains.map((toolchain) => (
+                    <FormControl sx={{ marginBottom: "var(--padding-md)" }}>
+                      <Radio
+                        key={
+                          toolchain.path +
+                          toolchain.version +
+                          toolchain.isSwiftly
+                        }
+                        label={toolchain.version}
+                        value={stringifyToolchain(toolchain)}
+                        variant="outlined"
+                        overlay
+                        onChange={() => setSelectedToolchain(toolchain)}
+                      />
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "var(--padding-xs)",
+                        }}
+                      >
+                        <Typography level="body-sm">
+                          {toolchain.path}
+                        </Typography>
+                        <Typography level="body-sm" color="primary">
+                          {toolchain.isSwiftly
+                            ? "(Swiftly)"
+                            : "(Manually Installed)"}
+                        </Typography>
+                      </div>
+                    </FormControl>
+                  ))}
+                </RadioGroup>
+              </>
             )}
             <div
               style={{
-                marginTop: "var(--padding-md)",
                 display: "flex",
                 gap: "var(--padding-md)",
               }}
             >
-              {hasTheos === true && (
+              {
+                <Button variant="soft" onClick={locateToolchain}>
+                  Locate Existing Toolchain
+                </Button>
+              }
+              {toolchains?.swiftlyInstalled === false &&
+                selectedToolchain === null && (
+                  <Button
+                    variant="soft"
+                    onClick={() => {
+                      openUrl("https://swift.org/install/");
+                    }}
+                  >
+                    Download Swift
+                  </Button>
+                )}
+              {
                 <Button
                   variant="soft"
                   onClick={() => {
-                    setUpdatingTheos(true);
+                    scanToolchains();
                   }}
                 >
-                  Update Theos
+                  Scan Again
                 </Button>
-              )}
-              {hasTheos === true && (
-                <RunCommand
-                  title="Updating Theos..."
-                  command="update_theos"
-                  listener="update-theos-output"
-                  failedMessage="Failed to update Theos, you can try manually running $THEOS/bin/update-theos"
-                  doneMessage="Theos is up-to-date!"
-                  run={updatingTheos}
-                  setRun={setUpdatingTheos}
-                />
-              )}
-              {hasTheos !== null && (!isWindows || hasWSL) && (
-                <Button
-                  variant="soft"
-                  onClick={() => {
-                    setInstallingTheos(true);
-                  }}
-                >
-                  {hasTheos ? "Reinstall Theos" : "Install Theos"}
-                </Button>
-              )}
-              <RunCommand
-                title="Installing Theos..."
-                command={
-                  isWindows === true
-                    ? "install_theos_windows"
-                    : "install_theos_linux"
-                }
-                listener="install-theos-output"
-                failedMessage="Failed to install theos"
-                doneMessage="Theos has been installed! Please restart YCode."
-                run={installingTheos}
-                setRun={setInstallingTheos}
-                askPassword={isWindows === true}
-              />
+              }
             </div>
           </CardContent>
         </Card>
@@ -215,3 +272,8 @@ export default ({}: OnboardingProps) => {
     </div>
   );
 };
+
+function stringifyToolchain(toolchain: Toolchain | null): string | null {
+  if (!toolchain) return null;
+  return `${toolchain.path}:${toolchain.version}:${toolchain.isSwiftly}`;
+}
