@@ -7,8 +7,11 @@ mod device;
 mod templates;
 #[macro_use]
 mod windows;
-mod sideloader;
+#[macro_use]
+mod sdk;
+#[macro_use]
 mod swift;
+mod sideloader;
 
 use device::refresh_idevice;
 use sideloader::apple_commands::{
@@ -18,6 +21,7 @@ use sideloader::apple_commands::{
 use tauri::Emitter;
 use templates::create_template;
 
+use sdk::install_sdk;
 use swift::{
     build_swift, clean_swift, deploy_swift, get_swiftly_toolchains, get_toolchain_version,
     validate_toolchain,
@@ -49,6 +53,7 @@ fn main() {
             get_swiftly_toolchains,
             validate_toolchain,
             get_toolchain_version,
+            install_sdk
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

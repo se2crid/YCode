@@ -63,9 +63,11 @@ export default () => {
             }}
           >
             {allToolchains.map((toolchain) => (
-              <FormControl sx={{ marginBottom: "var(--padding-md)" }}>
+              <FormControl
+                sx={{ marginBottom: "var(--padding-md)" }}
+                key={stringifyToolchain(toolchain)}
+              >
                 <Radio
-                  key={toolchain.path + toolchain.version + toolchain.isSwiftly}
                   label={toolchain.version}
                   value={stringifyToolchain(toolchain)}
                   variant="outlined"
