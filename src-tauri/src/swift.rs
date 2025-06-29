@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::device::DeviceInfo;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolchainResult {
@@ -135,4 +137,25 @@ fn get_swiftly_path() -> Option<String> {
     }
 
     None
+}
+
+#[tauri::command]
+pub async fn build_swift(window: tauri::Window, folder: String) -> Result<(), String> {
+    Err("Not implemented yet".to_string())
+}
+
+#[tauri::command]
+pub async fn clean_swift(window: tauri::Window, folder: String) -> Result<(), String> {
+    Err("Not implemented yet".to_string())
+}
+
+#[tauri::command]
+pub async fn deploy_swift(
+    handle: tauri::AppHandle,
+    window: tauri::Window,
+    anisette_server: String,
+    device: DeviceInfo,
+    folder: String,
+) -> Result<(), String> {
+    Err("Not implemented yet".to_string())
 }
