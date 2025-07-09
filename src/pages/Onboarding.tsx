@@ -7,6 +7,8 @@ import logo from "../assets/logo.png";
 import { useNavigate } from "react-router";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import SwiftMenu from "../components/SwiftMenu";
+import { invoke } from "@tauri-apps/api/core";
+import { useToast } from "react-toast-plus";
 
 export interface OnboardingProps {}
 
@@ -15,6 +17,7 @@ export default ({}: OnboardingProps) => {
     useIDE();
   const [ready, setReady] = useState(false);
   const navigate = useNavigate();
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (toolchains !== null && isWindows !== null && hasWSL !== null) {
@@ -133,6 +136,32 @@ export default ({}: OnboardingProps) => {
           <Divider />
           <CardContent>
             <SwiftMenu />
+          </CardContent>
+        </Card>
+        <Card variant="soft">
+          <Typography level="h3">SDK</Typography>
+          <Typography level="body-sm">
+            YCode requires a special SDK to build apps for iOS. It can be
+            generated from a copy of XCode 16 or later.
+          </Typography>
+          <Divider />
+          <CardContent>
+            <Button
+              variant="soft"
+              onClick={async () => {
+                let promise = invoke("install_sdk", {
+                  xcodePath: "/home/nicholas/Downloads/xcode/Xcode_16.xip",
+                  toolchainPath: "ballsack",
+                });
+                addToast.promise(promise, {
+                  pending: "Installing SDK... (This may take a while)",
+                  success: "SDK installed successfully!",
+                  error: "Failed to install SDK",
+                });
+              }}
+            >
+              Install SDK
+            </Button>
           </CardContent>
         </Card>
       </div>
