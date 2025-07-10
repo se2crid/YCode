@@ -1,7 +1,12 @@
+use crate::{device::DeviceInfo, emit_error_and_return};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-
-use crate::device::DeviceInfo;
+use std::{
+    io::{BufRead, BufReader},
+    path::PathBuf,
+    process::{Command, Stdio},
+    thread,
+};
+use tauri::Emitter;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -186,14 +191,50 @@ fn get_swiftly_path() -> Option<String> {
     None
 }
 
-#[tauri::command]
-pub async fn build_swift(window: tauri::Window, folder: String) -> Result<(), String> {
-    Err("Not implemented yet".to_string())
+async fn build_swift_internal(
+    window: tauri::Window,
+    folder: String,
+    toolchain_path: String,
+    debug: bool,
+    emit_exit_code: bool,
+) -> Result<(), String> {
+    let swift_bin = swift_bin(&toolchain_path)?;
+    let mut cmd = Command::new(swift_bin);
+    cmd.arg("build")
+        .arg("-c")
+        .arg(if debug { "debug" } else { "release" })
+        .arg("--swift-sdk")
+        .arg("arm64-apple-ios")
+        .current_dir(folder);
+
+    pipe_command(&mut cmd, window, emit_exit_code).await
 }
 
 #[tauri::command]
-pub async fn clean_swift(window: tauri::Window, folder: String) -> Result<(), String> {
-    Err("Not implemented yet".to_string())
+pub async fn build_swift(
+    window: tauri::Window,
+    folder: String,
+    toolchain_path: String,
+    debug: bool,
+) -> Result<(), String> {
+    if !validate_toolchain(&toolchain_path) {
+        return Err("Invalid toolchain path".to_string());
+    }
+
+    build_swift_internal(window, folder, toolchain_path, debug, true).await
+}
+
+#[tauri::command]
+pub async fn clean_swift(
+    window: tauri::Window,
+    folder: String,
+    toolchain_path: String,
+) -> Result<(), String> {
+    let swift_bin = swift_bin(&toolchain_path)?;
+    let mut cmd = Command::new(swift_bin);
+    cmd.arg("package").arg("clean").current_dir(folder);
+
+    pipe_command(&mut cmd, window, true).await
 }
 
 #[tauri::command]
@@ -203,6 +244,96 @@ pub async fn deploy_swift(
     anisette_server: String,
     device: DeviceInfo,
     folder: String,
+    toolchain_path: String,
+    debug: bool,
 ) -> Result<(), String> {
-    Err("Not implemented yet".to_string())
+    if !validate_toolchain(&toolchain_path) {
+        return Err("Invalid toolchain path".to_string());
+    }
+
+    build_swift_internal(window, folder, toolchain_path, debug, false).await?;
+
+    todo!("Bundle into .app and deploy")
+}
+
+pub async fn pipe_command(
+    cmd: &mut Command,
+    window: tauri::Window,
+    emit_exit_code: bool,
+) -> Result<(), String> {
+    let name = "build-output";
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
+    let mut command = match cmd.spawn() {
+        Ok(cmd) => cmd,
+        Err(_) => {
+            return emit_error_and_return(&window, "Failed to spawn build command");
+        }
+    };
+
+    let stdout = match command.stdout.take() {
+        Some(out) => out,
+        None => {
+            return emit_error_and_return(&window, "Failed to get stdout");
+        }
+    };
+
+    let stderr = match command.stderr.take() {
+        Some(err) => err,
+        None => {
+            return emit_error_and_return(&window, "Failed to get stderr");
+        }
+    };
+
+    let stdout_handle = spawn_output_thread(stdout, window.clone(), name.to_string());
+    let stderr_handle = spawn_output_thread(stderr, window.clone(), name.to_string());
+
+    stdout_handle.join().expect("stdout thread panicked");
+    stderr_handle.join().expect("stderr thread panicked");
+
+    let exit_status = match command.wait() {
+        Ok(status) => status,
+        Err(_) => {
+            return emit_error_and_return(&window, "Failed to wait for command");
+        }
+    };
+
+    let exit_code = exit_status.code().unwrap_or(1);
+
+    if exit_code != 0 || emit_exit_code {
+        window
+            .emit(name, format!("command.done.{}", exit_code))
+            .expect("failed to send output");
+    }
+
+    if exit_code != 0 {
+        return Err(format!("Command exited with code {}", exit_code));
+    }
+
+    Ok(())
+}
+
+fn spawn_output_thread<R: std::io::Read + Send + 'static>(
+    reader: R,
+    window: tauri::Window,
+    name: String,
+) -> std::thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let reader = BufReader::new(reader);
+        for line in reader.lines() {
+            match line {
+                Ok(line) => {
+                    window.emit(&name, line).expect("failed to send output");
+                }
+                Err(err) => {
+                    window
+                        .emit(&name, "command.done.999".to_string())
+                        .expect("failed to send output");
+                    eprintln!("Error reading output: {}", err);
+                    return;
+                }
+            }
+        }
+    })
 }

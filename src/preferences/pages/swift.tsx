@@ -20,7 +20,7 @@ export const swiftPage = createCustomPreferencePage(
     </div>
   ),
   {
-    description: "Manage your swift toolchains",
+    description: "Manage your swift toolchains and Darwin SDK",
     category: "swift",
   }
 );

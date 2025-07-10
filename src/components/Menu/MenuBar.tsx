@@ -183,7 +183,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
 
   const resetMenuIndex = useCallback(() => setMenuIndex(null), []);
   const { path } = useParams<"path">();
-  const { devices } = useIDE();
+  const { devices, selectedToolchain } = useIDE();
   const [anisetteServer] = useStore<string>(
     "apple-id/anisette-server",
     "ani.sidestore.io"
@@ -353,7 +353,11 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
         variant="plain"
         command="build_swift"
         icon={<Construction />}
-        parameters={{ folder: path }}
+        parameters={{
+          folder: path,
+          toolchainPath: selectedToolchain?.path ?? "",
+          debug: true,
+        }}
         sx={{ marginRight: 0 }}
       />
       <Divider orientation="vertical" />
@@ -395,6 +399,8 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
             folder: path,
             anisetteServer,
             device: selectedDevice,
+            toolchainPath: selectedToolchain?.path ?? "",
+            debug: true,
           }}
           validate={() => {
             if (!selectedDevice) {
