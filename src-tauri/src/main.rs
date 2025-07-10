@@ -23,8 +23,8 @@ use templates::create_template;
 
 use sdk::install_sdk;
 use swift::{
-    build_swift, clean_swift, deploy_swift, get_swiftly_toolchains, get_toolchain_version,
-    validate_toolchain,
+    build_swift, clean_swift, deploy_swift, get_swiftly_toolchains, get_toolchain_info,
+    has_darwin_sdk, validate_toolchain,
 };
 use windows::{has_wsl, is_windows};
 
@@ -52,8 +52,9 @@ fn main() {
             create_template,
             get_swiftly_toolchains,
             validate_toolchain,
-            get_toolchain_version,
-            install_sdk
+            get_toolchain_info,
+            install_sdk,
+            has_darwin_sdk,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -28,7 +28,14 @@ export default () => {
     return all;
   }, [selectedToolchain, toolchains]);
   return (
-    <div style={{ width: "fit-content" }}>
+    <div
+      style={{
+        width: "fit-content",
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--padding-md)",
+      }}
+    >
       <Typography level="body-sm">
         {toolchains === null
           ? "Checking for Swift..."
@@ -54,21 +61,25 @@ export default () => {
         </Typography>
       )}
       {toolchains !== null && allToolchains.length > 0 && (
-        <>
+        <div>
           <Typography level="body-md">Select a toolchain:</Typography>
           <RadioGroup
             value={stringifyToolchain(selectedToolchain)}
             sx={{
               marginTop: "var(--padding-xs)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--padding-md)",
             }}
           >
             {allToolchains.map((toolchain) => (
-              <FormControl
-                sx={{ marginBottom: "var(--padding-md)" }}
-                key={stringifyToolchain(toolchain)}
-              >
+              <FormControl key={stringifyToolchain(toolchain)}>
                 <Radio
-                  label={toolchain.version}
+                  label={
+                    toolchain.version +
+                    (isCompatable(toolchain) ? "" : " - Not Compatable")
+                  }
+                  disabled={!isCompatable(toolchain)}
                   value={stringifyToolchain(toolchain)}
                   variant="outlined"
                   overlay
@@ -89,7 +100,7 @@ export default () => {
               </FormControl>
             ))}
           </RadioGroup>
-        </>
+        </div>
       )}
       <div
         style={{
@@ -127,6 +138,11 @@ export default () => {
     </div>
   );
 };
+
+function isCompatable(toolchain: Toolchain | null): boolean {
+  if (!toolchain) return false;
+  return toolchain.version.startsWith("6.0");
+}
 
 function stringifyToolchain(toolchain: Toolchain | null): string | null {
   if (!toolchain) return null;

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import "./Onboarding.css";
 import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
 import { useIDE } from "../utilities/IDEContext";
@@ -8,8 +7,7 @@ import logo from "../assets/logo.png";
 import { useNavigate } from "react-router";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import SwiftMenu from "../components/SwiftMenu";
-import { invoke } from "@tauri-apps/api/core";
-import { useToast } from "react-toast-plus";
+import SDKMenu from "../components/SDKMenu";
 
 export interface OnboardingProps {}
 
@@ -18,7 +16,6 @@ export default ({}: OnboardingProps) => {
     useIDE();
   const [ready, setReady] = useState(false);
   const navigate = useNavigate();
-  const { addToast } = useToast();
 
   useEffect(() => {
     if (toolchains !== null && isWindows !== null && hasWSL !== null) {
@@ -131,8 +128,8 @@ export default ({}: OnboardingProps) => {
         <Card variant="soft">
           <Typography level="h3">Swift</Typography>
           <Typography level="body-sm">
-            You will need a Swift toolchain to use YCode. It is recommended to
-            install it using swiftly, but you can also install it manually.
+            You will need a Swift 6.0 toolchain to use YCode. It is recommended
+            to install it using swiftly, but you can also install it manually.
           </Typography>
           <Divider />
           <CardContent>
@@ -140,48 +137,16 @@ export default ({}: OnboardingProps) => {
           </CardContent>
         </Card>
         <Card variant="soft">
-          <Typography level="h3">SDK</Typography>
+          <Typography level="h3">Darwin SDK</Typography>
           <Typography level="body-sm">
-            YCode requires a special SDK to build apps for iOS. It can be
-            generated from a copy of XCode 16 or later.
+            YCode requires a special swift SDK to build apps for iOS. It can be
+            generated from a copy of Xcode 16 or later. To install it, download
+            Xcode.xip using the link below, click the "Install SDK" button, then
+            select the downloaded file.
           </Typography>
           <Divider />
           <CardContent>
-            <Button
-              variant="soft"
-              onClick={async () => {
-                let xipPath = await openDialog({
-                  directory: false,
-                  multiple: false,
-                  filters: [
-                    {
-                      name: "XCode",
-                      extensions: ["xip"],
-                    },
-                  ],
-                });
-                if (!xipPath) {
-                  addToast.error("No XCode file selected.");
-                  return;
-                }
-                console.log("Selected XCode path:", xipPath);
-                let promise = invoke("install_sdk", {
-                  xcodePath: xipPath,
-                  toolchainPath: selectedToolchain?.path || "",
-                });
-                addToast.promise(promise, {
-                  pending: "Installing SDK... (This may take a while)",
-                  success: "SDK installed successfully!",
-                  error: (e) => {
-                    console.error("Failed to install SDK:", e);
-                    return `Failed to install SDK: ${e}`;
-                  },
-                });
-              }}
-              disabled={!selectedToolchain}
-            >
-              Install SDK
-            </Button>
+            <SDKMenu />
           </CardContent>
         </Card>
       </div>

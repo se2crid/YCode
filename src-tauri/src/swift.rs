@@ -26,14 +26,58 @@ struct SwiftlyConfig {
     pub version: String,
 }
 
-#[tauri::command]
-pub async fn validate_toolchain(toolchain_path: String) -> bool {
+pub fn swift_bin(toolchain_path: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(toolchain_path);
     if !path.exists() || !path.is_dir() {
-        return false;
+        return Err("Invalid toolchain path".to_string());
     }
     let swift_path = path.join("usr").join("bin").join("swift");
     if !swift_path.exists() || !swift_path.is_file() {
+        return Err("Swift binary not found in toolchain".to_string());
+    }
+    Ok(swift_path)
+}
+
+#[tauri::command]
+pub fn has_darwin_sdk(toolchain_path: &str) -> bool {
+    let swift_bin = swift_bin(toolchain_path);
+    if swift_bin.is_err() {
+        return false;
+    }
+    let swift_bin = swift_bin.unwrap();
+
+    let output = std::process::Command::new(swift_bin)
+        .arg("sdk")
+        .arg("list")
+        .output();
+    if output.is_err() {
+        return false;
+    }
+    let output = output.unwrap();
+    if !output.status.success() {
+        return false;
+    }
+    let output_str = String::from_utf8_lossy(&output.stdout);
+
+    output_str.contains("darwin")
+}
+
+#[tauri::command]
+pub fn validate_toolchain(toolchain_path: &str) -> bool {
+    let swift_path = swift_bin(toolchain_path);
+    if swift_path.is_err() {
+        return false;
+    }
+    let swift_path = swift_path.unwrap();
+
+    let output = std::process::Command::new(swift_path)
+        .arg("--version")
+        .output();
+    if output.is_err() {
+        return false;
+    }
+    let output = output.unwrap();
+    if !output.status.success() {
         return false;
     }
 
@@ -41,15 +85,14 @@ pub async fn validate_toolchain(toolchain_path: String) -> bool {
 }
 
 #[tauri::command]
-pub async fn get_toolchain_version(toolchain_path: String) -> Result<String, String> {
-    if !validate_toolchain(toolchain_path.clone()).await {
+pub async fn get_toolchain_info(
+    toolchain_path: String,
+    is_swiftly: bool,
+) -> Result<Toolchain, String> {
+    if !validate_toolchain(&toolchain_path) {
         return Err("Invalid toolchain path".to_string());
     }
-    let path = PathBuf::from(toolchain_path);
-    let swift_path = path.join("usr").join("bin").join("swift");
-    if !swift_path.exists() || !swift_path.is_file() {
-        return Err("Swift binary not found in toolchain".to_string());
-    }
+    let swift_path = swift_bin(&toolchain_path)?;
 
     let output = std::process::Command::new(swift_path)
         .arg("--version")
@@ -61,7 +104,11 @@ pub async fn get_toolchain_version(toolchain_path: String) -> Result<String, Str
         .nth(2)
         .ok_or("Failed to parse swift version".to_string())?
         .to_string();
-    Ok(version)
+    Ok(Toolchain {
+        version,
+        path: toolchain_path.clone(),
+        is_swiftly,
+    })
 }
 
 #[tauri::command]
@@ -89,7 +136,7 @@ pub async fn get_swiftly_toolchains() -> Result<ToolchainResult, String> {
 
         let mut toolchains = Vec::new();
         for toolchain in toolchains_unfiltered {
-            if validate_toolchain(toolchain.path.clone()).await {
+            if validate_toolchain(&toolchain.path) {
                 toolchains.push(toolchain);
             }
         }

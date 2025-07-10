@@ -91,6 +91,7 @@ export const IDEProvider: React.FC<{
     return invoke<ListToolchainResponse>("get_swiftly_toolchains").then(
       (response) => {
         if (response) {
+          console.log(response.toolchains);
           setToolchains(response);
         }
       }
@@ -107,24 +108,19 @@ export const IDEProvider: React.FC<{
       return;
     }
     if (await invoke("validate_toolchain", { toolchainPath: path })) {
-      const version = await invoke<string>("get_toolchain_version", {
+      const info = await invoke<Toolchain>("get_toolchain_info", {
         toolchainPath: path,
       }).catch((error) => {
-        console.error("Error getting toolchain version:", error);
-        addToast.error("Failed to get toolchain version");
+        console.error("Error getting toolchain info:", error);
+        addToast.error("Failed to get toolchain info");
         return null;
       });
-      if (!version) {
+      if (!info) {
         addToast.error("Invalid toolchain path or version not found");
         return;
       }
-      if (version) {
-        const toolchain: Toolchain = {
-          version: version,
-          path: path,
-          isSwiftly: false,
-        };
-        setSelectedToolchain(toolchain);
+      if (info) {
+        setSelectedToolchain(info);
       }
     } else {
       addToast.error("Invalid toolchain path");

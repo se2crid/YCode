@@ -8,7 +8,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager};
 
-use crate::swift::validate_toolchain;
+use crate::swift::{swift_bin, validate_toolchain};
 
 const DARWIN_TOOLS_VERSION: &str = "1.0.1";
 
@@ -26,9 +26,13 @@ pub async fn install_sdk(
         Ok(())
     };
     match (res, cleanup_result) {
-        (Err(main_err), Err(cleanup_err)) => Err(format!("{main_err} (additionally, failed to clean up temp dir: {cleanup_err})")),
+        (Err(main_err), Err(cleanup_err)) => Err(format!(
+            "{main_err} (additionally, failed to clean up temp dir: {cleanup_err})"
+        )),
         (Err(main_err), _) => Err(main_err),
-        (Ok(val), Err(cleanup_err)) => Err(format!("Install succeeded, but failed to clean up temp dir: {cleanup_err}")),
+        (Ok(val), Err(cleanup_err)) => Err(format!(
+            "Install succeeded, but failed to clean up temp dir: {cleanup_err}"
+        )),
         (Ok(val), Ok(_)) => Ok(val),
     }
 }
@@ -38,17 +42,30 @@ async fn install_sdk_internal(
     toolchain_path: String,
     work_dir: PathBuf,
 ) -> Result<(), String> {
+    let swift_bin = swift_bin(&toolchain_path)?;
+    let output = std::process::Command::new(swift_bin)
+        .arg("sdk")
+        .arg("remove")
+        .arg("darwin")
+        .output();
+    if let Ok(output) = output {
+        if !output.status.success() && output.status.code() != Some(1) {
+            return Err(format!(
+                "Failed to remove existing darwin SDK: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+    }
     if xcode_path.is_empty() || !xcode_path.ends_with(".xip") {
         return Err("Xcode not found".to_string());
     }
     if toolchain_path.is_empty() {
         return Err("Toolchain not found".to_string());
     }
-    if !validate_toolchain(toolchain_path.clone()).await {
+    if !validate_toolchain(&toolchain_path) {
         return Err("Invalid toolchain path".to_string());
     }
-    let output_dir = work_dir
-        .join("darwin.artifactbundle");
+    let output_dir = work_dir.join("darwin.artifactbundle");
     if output_dir.exists() {
         fs::remove_dir_all(&output_dir)
             .map_err(|e| format!("Failed to remove existing output directory: {}", e))?;
@@ -163,11 +180,8 @@ async fn install_sdk_internal(
 
 fn sdk(dev: &PathBuf, platform: &str) -> Result<String, String> {
     let dir = dev.join(format!("Platforms/{}.platform/Developer/SDKs", platform));
-    let regex = Regex::new(&format!(
-        r"^{}\d+\.\d+\.sdk$",
-        regex::escape(platform)
-    ))
-    .map_err(|e| format!("Invalid regex: {}", e))?;
+    let regex = Regex::new(&format!(r"^{}\d+\.\d+\.sdk$", regex::escape(platform)))
+        .map_err(|e| format!("Invalid regex: {}", e))?;
 
     let entries =
         fs::read_dir(&dir).map_err(|e| format!("Failed to read SDKs directory: {}", e))?;
@@ -338,8 +352,8 @@ fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
             .map_err(|e| format!("Failed to get metadata: {}", e))?;
 
         if metadata.file_type().is_symlink() {
-            let target = fs::read_link(&src_path)
-                .map_err(|e| format!("Failed to read symlink: {}", e))?;
+            let target =
+                fs::read_link(&src_path).map_err(|e| format!("Failed to read symlink: {}", e))?;
             if let Some(parent) = dst_path.parent() {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dir: {}", e))?;
