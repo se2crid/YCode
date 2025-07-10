@@ -1,11 +1,14 @@
 // Reference: https://github.com/xtool-org/xtool/blob/main/Sources/XToolSupport/SDKBuilder.swift
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager};
+
+use crate::swift::validate_toolchain;
 
 const DARWIN_TOOLS_VERSION: &str = "1.0.1";
 
@@ -15,14 +18,36 @@ pub async fn install_sdk(
     xcode_path: String,
     toolchain_path: String,
 ) -> Result<(), String> {
-    if xcode_path.is_empty() {
+    let work_dir = std::env::temp_dir().join("DarwinSDKBuild");
+    let res = install_sdk_internal(app, xcode_path, toolchain_path, work_dir.clone()).await;
+    let cleanup_result = if work_dir.exists() {
+        fs::remove_dir_all(&work_dir)
+    } else {
+        Ok(())
+    };
+    match (res, cleanup_result) {
+        (Err(main_err), Err(cleanup_err)) => Err(format!("{main_err} (additionally, failed to clean up temp dir: {cleanup_err})")),
+        (Err(main_err), _) => Err(main_err),
+        (Ok(val), Err(cleanup_err)) => Err(format!("Install succeeded, but failed to clean up temp dir: {cleanup_err}")),
+        (Ok(val), Ok(_)) => Ok(val),
+    }
+}
+async fn install_sdk_internal(
+    app: AppHandle,
+    xcode_path: String,
+    toolchain_path: String,
+    work_dir: PathBuf,
+) -> Result<(), String> {
+    if xcode_path.is_empty() || !xcode_path.ends_with(".xip") {
         return Err("Xcode not found".to_string());
     }
     if toolchain_path.is_empty() {
         return Err("Toolchain not found".to_string());
     }
-    let output_dir = std::env::temp_dir()
-        .join("DarwinSDKBuild")
+    if !validate_toolchain(toolchain_path.clone()).await {
+        return Err("Invalid toolchain path".to_string());
+    }
+    let output_dir = work_dir
         .join("darwin.artifactbundle");
     if output_dir.exists() {
         fs::remove_dir_all(&output_dir)
@@ -76,13 +101,70 @@ pub async fn install_sdk(
     fs::write(output_dir.join("toolset.json"), toolset)
         .map_err(|e| format!("Failed to write toolset.json: {}", e))?;
 
+    let sdk_def = SDKDefinition {
+        schema_version: "4.0".to_string(),
+        target_triples: HashMap::from([
+            (
+                "arm64-apple-ios".to_string(),
+                Triple::from_sdk("iPhoneOS", &iphone_os_sdk),
+            ),
+            (
+                "arm64-apple-ios-simulator".to_string(),
+                Triple::from_sdk("iPhoneSimulator", &iphone_simulator_sdk),
+            ),
+            (
+                "x86_64-apple-ios-simulator".to_string(),
+                Triple::from_sdk("iPhoneSimulator", &iphone_simulator_sdk),
+            ),
+            (
+                "arm64-apple-macos".to_string(),
+                Triple::from_sdk("MacOSX", &mac_os_sdk),
+            ),
+            (
+                "x86_64-apple-macos".to_string(),
+                Triple::from_sdk("MacOSX", &mac_os_sdk),
+            ),
+        ]),
+    };
+
+    let sdk_def_path = output_dir.join("swift-sdk.json");
+    fs::write(
+        sdk_def_path,
+        serde_json::to_string_pretty(&sdk_def)
+            .map_err(|e| format!("Failed to serialize SDKDefinition: {}", e))?,
+    )
+    .map_err(|e| format!("Failed to write swift-sdk.json: {}", e))?;
+    let sdk_version_path = output_dir.join("darwin-sdk-version.txt");
+    fs::write(&sdk_version_path, "develop")
+        .map_err(|e| format!("Failed to write darwin-sdk-version.txt: {}", e))?;
+
+    let path = PathBuf::from(toolchain_path);
+    let swift_path = path.join("usr").join("bin").join("swift");
+    if !swift_path.exists() || !swift_path.is_file() {
+        return Err("Swift binary not found in toolchain".to_string());
+    }
+
+    let output = std::process::Command::new(swift_path)
+        .arg("sdk")
+        .arg("install")
+        .arg(output_dir.to_string_lossy().to_string())
+        .output()
+        .map_err(|e| format!("Failed to execute swift command: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "Swift command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
     Ok(())
 }
 
 fn sdk(dev: &PathBuf, platform: &str) -> Result<String, String> {
     let dir = dev.join(format!("Platforms/{}.platform/Developer/SDKs", platform));
     let regex = Regex::new(&format!(
-        r"^{}[0-9]+\.[0-9]+\.sdk$",
+        r"^{}\d+\.\d+\.sdk$",
         regex::escape(platform)
     ))
     .map_err(|e| format!("Invalid regex: {}", e))?;
@@ -133,7 +215,7 @@ async fn install_toolset(output_path: &PathBuf) -> Result<(), String> {
     archive
         .unpack(&toolset_dir)
         .map_err(|e| format!("Failed to extract toolset: {}", e))?;
-
+    let toolset_bin = toolset_dir.join("bin");
     Ok(())
 }
 
@@ -228,6 +310,8 @@ async fn install_developer(
 }
 
 fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
+    use std::os::unix::fs as unix_fs;
+
     for entry in fs::read_dir(src).map_err(|e| format!("Failed to read dir: {}", e))? {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let file_name = entry.file_name();
@@ -236,14 +320,36 @@ fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
             continue;
         }
         let src_path = entry.path();
-        let dst_path = dst.join(&rel_path);
-        let file_type = entry
-            .file_type()
-            .map_err(|e| format!("Failed to get file type: {}", e))?;
-        if file_type.is_dir() {
+
+        let mut rel_components = rel_path.components();
+        if let Some(c) = rel_components.next() {
+            if c.as_os_str() != "Contents" {
+                rel_components = rel_path.components();
+            }
+        }
+        if let Some(c) = rel_components.next() {
+            if c.as_os_str() != "Developer" {
+                rel_components = rel_path.components();
+            }
+        }
+        let dst_path = dst.join(rel_components.as_path());
+
+        let metadata = fs::symlink_metadata(&src_path)
+            .map_err(|e| format!("Failed to get metadata: {}", e))?;
+
+        if metadata.file_type().is_symlink() {
+            let target = fs::read_link(&src_path)
+                .map_err(|e| format!("Failed to read symlink: {}", e))?;
+            if let Some(parent) = dst_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create parent dir: {}", e))?;
+            }
+            unix_fs::symlink(&target, &dst_path)
+                .map_err(|e| format!("Failed to create symlink: {}", e))?;
+        } else if metadata.is_dir() {
             fs::create_dir_all(&dst_path).map_err(|e| format!("Failed to create dir: {}", e))?;
             copy_developer(&src_path, dst, &rel_path)?;
-        } else if file_type.is_file() {
+        } else if metadata.is_file() {
             if let Some(parent) = dst_path.parent() {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dir: {}", e))?;
@@ -254,7 +360,8 @@ fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
     Ok(())
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Triple {
     sdk_root_path: String,
     include_search_paths: Vec<String>,
@@ -264,7 +371,34 @@ struct Triple {
     toolset_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+impl Triple {
+    fn from_sdk(platform: &str, sdk: &str) -> Self {
+        Triple {
+            sdk_root_path: format!(
+                "Developer/Platforms/{}.platform/Developer/SDKs/{}",
+                platform, sdk
+            ),
+            include_search_paths: vec![format!(
+                "Developer/Platforms/{}.platform/Developer/usr/lib",
+                platform
+            )],
+            library_search_paths: vec![format!(
+                "Developer/Platforms/{}.platform/Developer/usr/lib",
+                platform
+            )],
+            swift_resources_path: format!(
+                "Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift"
+            ),
+            swift_static_resources_path: format!(
+                "Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift_static"
+            ),
+            toolset_paths: vec![format!("toolset.json")],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SDKDefinition {
     schema_version: String,
     target_triples: HashMap<String, Triple>,

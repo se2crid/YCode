@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import "./Onboarding.css";
 import { Button, Card, CardContent, Divider, Link, Typography } from "@mui/joy";
 import { useIDE } from "../utilities/IDEContext";
@@ -149,16 +150,35 @@ export default ({}: OnboardingProps) => {
             <Button
               variant="soft"
               onClick={async () => {
+                let xipPath = await openDialog({
+                  directory: false,
+                  multiple: false,
+                  filters: [
+                    {
+                      name: "XCode",
+                      extensions: ["xip"],
+                    },
+                  ],
+                });
+                if (!xipPath) {
+                  addToast.error("No XCode file selected.");
+                  return;
+                }
+                console.log("Selected XCode path:", xipPath);
                 let promise = invoke("install_sdk", {
-                  xcodePath: "/home/nicholas/Downloads/xcode/Xcode_16.xip",
-                  toolchainPath: "ballsack",
+                  xcodePath: xipPath,
+                  toolchainPath: selectedToolchain?.path || "",
                 });
                 addToast.promise(promise, {
                   pending: "Installing SDK... (This may take a while)",
                   success: "SDK installed successfully!",
-                  error: "Failed to install SDK",
+                  error: (e) => {
+                    console.error("Failed to install SDK:", e);
+                    return `Failed to install SDK: ${e}`;
+                  },
                 });
               }}
+              disabled={!selectedToolchain}
             >
               Install SDK
             </Button>
