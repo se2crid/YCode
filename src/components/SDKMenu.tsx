@@ -3,25 +3,12 @@ import { useIDE } from "../utilities/IDEContext";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useToast } from "react-toast-plus";
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 export default () => {
-  const { selectedToolchain } = useIDE();
+  const { selectedToolchain, hasDarwinSDK, checkSDK } = useIDE();
   const { addToast } = useToast();
-  const [hasDarwinSDK, setHasDarwinSDK] = useState<boolean | null>(null);
-
-  const checkSDK = useCallback(async () => {
-    try {
-      let result = await invoke<boolean>("has_darwin_sdk", {
-        toolchainPath: selectedToolchain?.path || "",
-      });
-      setHasDarwinSDK(result);
-    } catch (e) {
-      console.error("Failed to check for SDK:", e);
-      setHasDarwinSDK(false);
-    }
-  }, [selectedToolchain]);
 
   const install = useCallback(async () => {
     let xipPath = await open({

@@ -346,7 +346,10 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
         variant="plain"
         command="clean_swift"
         icon={<CleaningServices />}
-        parameters={{ folder: path }}
+        parameters={{
+          folder: path,
+          toolchainPath: selectedToolchain?.path ?? "",
+        }}
         sx={{ marginLeft: "auto", marginRight: 0 }}
       />
       <CommandButton

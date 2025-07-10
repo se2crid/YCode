@@ -234,6 +234,10 @@ pub async fn clean_swift(
     let mut cmd = Command::new(swift_bin);
     cmd.arg("package").arg("clean").current_dir(folder);
 
+    window
+        .emit("build-output", "Cleaning...")
+        .expect("failed to send output");
+
     pipe_command(&mut cmd, window, true).await
 }
 

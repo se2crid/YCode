@@ -28,6 +28,7 @@ export interface IDEContextType {
   initialized: boolean;
   isWindows: boolean;
   hasWSL: boolean;
+  hasDarwinSDK: boolean;
   toolchains: ListToolchainResponse | null;
   selectedToolchain: Toolchain | null;
   devices: DeviceInfo[];
@@ -35,6 +36,7 @@ export interface IDEContextType {
   consoleLines: string[];
   setConsoleLines: React.Dispatch<React.SetStateAction<string[]>>;
   scanToolchains: () => Promise<void>;
+  checkSDK: () => Promise<void>;
   locateToolchain: () => Promise<void>;
   setSelectedToolchain: (
     value: Toolchain | ((oldValue: Toolchain | null) => Toolchain | null) | null
@@ -79,6 +81,7 @@ export const IDEProvider: React.FC<{
   const [toolchains, setToolchains] = useState<ListToolchainResponse | null>(
     null
   );
+  const [hasDarwinSDK, setHasDarwinSDK] = useState<boolean>(false);
   const [initialized, setInitialized] = useState(false);
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [consoleLines, setConsoleLines] = useState<string[]>([]);
@@ -87,11 +90,22 @@ export const IDEProvider: React.FC<{
     null
   );
 
+  const checkSDK = useCallback(async () => {
+    try {
+      let result = await invoke<boolean>("has_darwin_sdk", {
+        toolchainPath: selectedToolchain?.path || "",
+      });
+      setHasDarwinSDK(result);
+    } catch (e) {
+      console.error("Failed to check for SDK:", e);
+      setHasDarwinSDK(false);
+    }
+  }, [selectedToolchain]);
+
   const scanToolchains = useCallback(() => {
     return invoke<ListToolchainResponse>("get_swiftly_toolchains").then(
       (response) => {
         if (response) {
-          console.log(response.toolchains);
           setToolchains(response);
         }
       }
@@ -138,6 +152,11 @@ export const IDEProvider: React.FC<{
     initPromises.push(
       invoke("is_windows").then((response) => {
         setIsWindows(response as boolean);
+      })
+    );
+    initPromises.push(
+      invoke("has_darwin_sdk").then((response) => {
+        setHasDarwinSDK(response as boolean);
       })
     );
 
@@ -262,6 +281,8 @@ export const IDEProvider: React.FC<{
       scanToolchains,
       locateToolchain,
       setSelectedToolchain,
+      hasDarwinSDK,
+      checkSDK,
     }),
     [
       isWindows,
@@ -276,6 +297,8 @@ export const IDEProvider: React.FC<{
       scanToolchains,
       locateToolchain,
       setSelectedToolchain,
+      hasDarwinSDK,
+      checkSDK,
     ]
   );
 
