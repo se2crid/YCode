@@ -5,6 +5,8 @@ import { useToast } from "react-toast-plus";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import OperationView from "./OperationView";
+import { installSdkOperation } from "../utilities/operations";
 
 export default () => {
   const { selectedToolchain, hasDarwinSDK, checkSDK } = useIDE();

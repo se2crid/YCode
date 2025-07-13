@@ -23,6 +23,7 @@ import {
 } from "@mui/joy";
 import { useCommandRunner } from "./Command";
 import { useStore } from "./StoreContext";
+import { Operation } from "./operations";
 
 export interface IDEContextType {
   initialized: boolean;
@@ -38,6 +39,10 @@ export interface IDEContextType {
   scanToolchains: () => Promise<void>;
   checkSDK: () => Promise<void>;
   locateToolchain: () => Promise<void>;
+  startOperation: <T>(
+    operation: Operation,
+    params: { [key: string]: any }
+  ) => Promise<T>;
   setSelectedToolchain: (
     value: Toolchain | ((oldValue: Toolchain | null) => Toolchain | null) | null
   ) => void;
@@ -155,7 +160,9 @@ export const IDEProvider: React.FC<{
       })
     );
     initPromises.push(
-      invoke("has_darwin_sdk").then((response) => {
+      invoke("has_darwin_sdk", {
+        toolchainPath: selectedToolchain?.path ?? "",
+      }).then((response) => {
         setHasDarwinSDK(response as boolean);
       })
     );
@@ -165,10 +172,8 @@ export const IDEProvider: React.FC<{
         setInitialized(true);
       })
       .catch((error) => {
-        console.error("Error initializing IDE context:", error);
-        alert(
-          "An error occurred while initializing the IDE context. Please check the console for details."
-        );
+        console.error("Error initializing IDE context: ", error);
+        alert("An error occurred while initializing the IDE context: " + error);
       });
   }, []);
 
@@ -266,6 +271,8 @@ export const IDEProvider: React.FC<{
   }, []);
 
   const { cancelCommand } = useCommandRunner();
+
+  const startOperation = useCallback;
 
   const contextValue = useMemo(
     () => ({

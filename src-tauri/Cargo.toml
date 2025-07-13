@@ -19,7 +19,7 @@ tauri-plugin-fs = { version = "2", features= ["watch"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
-idevice = { version = "0.1.35", features = ["full"] }
+idevice = { version = "0.1.35", features = ["usbmuxd", "afc", "installation_proxy"] }
 futures = "0.3.31"
 keyring = "2"
 icloud_auth = {path = "./apple-private-apis/icloud-auth" }

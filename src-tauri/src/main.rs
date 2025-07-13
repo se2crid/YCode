@@ -21,7 +21,7 @@ use sideloader::apple_commands::{
 use tauri::Emitter;
 use templates::create_template;
 
-use sdk::install_sdk;
+use sdk::install_sdk_operation;
 use swift::{
     build_swift, clean_swift, deploy_swift, get_swiftly_toolchains, get_toolchain_info,
     has_darwin_sdk, validate_toolchain,
@@ -53,7 +53,7 @@ fn main() {
             get_swiftly_toolchains,
             validate_toolchain,
             get_toolchain_info,
-            install_sdk,
+            install_sdk_operation,
             has_darwin_sdk,
         ])
         .run(tauri::generate_context!())

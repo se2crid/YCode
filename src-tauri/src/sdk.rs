@@ -13,7 +13,7 @@ use crate::swift::{swift_bin, validate_toolchain};
 const DARWIN_TOOLS_VERSION: &str = "1.0.1";
 
 #[tauri::command]
-pub async fn install_sdk(
+pub async fn install_sdk_operation(
     app: AppHandle,
     xcode_path: String,
     toolchain_path: String,
@@ -30,7 +30,7 @@ pub async fn install_sdk(
             "{main_err} (additionally, failed to clean up temp dir: {cleanup_err})"
         )),
         (Err(main_err), _) => Err(main_err),
-        (Ok(val), Err(cleanup_err)) => Err(format!(
+        (Ok(_), Err(cleanup_err)) => Err(format!(
             "Install succeeded, but failed to clean up temp dir: {cleanup_err}"
         )),
         (Ok(val), Ok(_)) => Ok(val),
@@ -229,7 +229,6 @@ async fn install_toolset(output_path: &PathBuf) -> Result<(), String> {
     archive
         .unpack(&toolset_dir)
         .map_err(|e| format!("Failed to extract toolset: {}", e))?;
-    let toolset_bin = toolset_dir.join("bin");
     Ok(())
 }
 
