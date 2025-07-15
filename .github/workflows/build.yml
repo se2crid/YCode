@@ -62,6 +62,8 @@ jobs:
         run: bun install
 
       - uses: tauri-apps/tauri-action@v0
+        with:
+          args: "--verbose"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
