@@ -8,9 +8,7 @@ mod templates;
 #[macro_use]
 mod windows;
 #[macro_use]
-mod sdk;
-#[macro_use]
-mod swift;
+mod builder;
 mod sideloader;
 
 use device::refresh_idevice;
@@ -21,8 +19,8 @@ use sideloader::apple_commands::{
 use tauri::Emitter;
 use templates::create_template;
 
-use sdk::install_sdk_operation;
-use swift::{
+use builder::sdk::install_sdk_operation;
+use builder::swift::{
     build_swift, clean_swift, deploy_swift, get_swiftly_toolchains, get_toolchain_info,
     has_darwin_sdk, validate_toolchain,
 };

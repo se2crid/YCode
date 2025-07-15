@@ -23,7 +23,8 @@ import {
 } from "@mui/joy";
 import { useCommandRunner } from "./Command";
 import { useStore } from "./StoreContext";
-import { Operation } from "./operations";
+import { Operation, OperationState, OperationUpdate } from "./operations";
+import OperationView from "../components/OperationView";
 
 export interface IDEContextType {
   initialized: boolean;
@@ -39,10 +40,10 @@ export interface IDEContextType {
   scanToolchains: () => Promise<void>;
   checkSDK: () => Promise<void>;
   locateToolchain: () => Promise<void>;
-  startOperation: <T>(
+  startOperation: (
     operation: Operation,
     params: { [key: string]: any }
-  ) => Promise<T>;
+  ) => Promise<void>;
   setSelectedToolchain: (
     value: Toolchain | ((oldValue: Toolchain | null) => Toolchain | null) | null
   ) => void;
@@ -272,7 +273,59 @@ export const IDEProvider: React.FC<{
 
   const { cancelCommand } = useCommandRunner();
 
-  const startOperation = useCallback;
+  const [operationState, setOperationState] = useState<OperationState | null>(
+    null
+  );
+
+  const startOperation = useCallback(
+    async (
+      operation: Operation,
+      params: { [key: string]: any }
+    ): Promise<void> => {
+      return new Promise<void>(async (resolve, reject) => {
+        const unlistenFn = await listen<OperationUpdate>(
+          "operation_" + operation.id,
+          (event) => {
+            setOperationState((old) => {
+              if (old == null) return null;
+              if (event.payload.updateType === "started") {
+                return {
+                  ...old,
+                  started: [...old.started, event.payload.stepId],
+                };
+              } else if (event.payload.updateType === "finished") {
+                return {
+                  ...old,
+                  completed: [...old.completed, event.payload.stepId],
+                };
+              } else if (event.payload.updateType === "failed") {
+                return {
+                  ...old,
+                  failed: [
+                    ...old.failed,
+                    {
+                      stepId: event.payload.stepId,
+                      extraDetails: event.payload.extraDetails,
+                    },
+                  ],
+                };
+              }
+              return old;
+            });
+          }
+        );
+        try {
+          await invoke(operation.id, params);
+          unlistenFn();
+          resolve();
+        } catch (e) {
+          unlistenFn();
+          reject(e);
+        }
+      });
+    },
+    [setOperationState]
+  );
 
   const contextValue = useMemo(
     () => ({
@@ -290,6 +343,7 @@ export const IDEProvider: React.FC<{
       setSelectedToolchain,
       hasDarwinSDK,
       checkSDK,
+      startOperation,
     }),
     [
       isWindows,
@@ -306,6 +360,7 @@ export const IDEProvider: React.FC<{
       setSelectedToolchain,
       hasDarwinSDK,
       checkSDK,
+      startOperation,
     ]
   );
 
@@ -440,6 +495,14 @@ export const IDEProvider: React.FC<{
           </form>
         </ModalDialog>
       </Modal>
+      {operationState && (
+        <OperationView
+          operationState={operationState}
+          closeMenu={() => {
+            setOperationState(null);
+          }}
+        />
+      )}
     </IDEContext.Provider>
   );
 };

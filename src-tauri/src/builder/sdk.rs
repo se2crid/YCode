@@ -8,7 +8,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager};
 
-use crate::swift::{swift_bin, validate_toolchain};
+use crate::builder::swift::{swift_bin, validate_toolchain};
 
 const DARWIN_TOOLS_VERSION: &str = "1.0.1";
 

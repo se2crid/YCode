@@ -2,14 +2,13 @@ import { Button, Typography } from "@mui/joy";
 import { useIDE } from "../utilities/IDEContext";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useToast } from "react-toast-plus";
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import OperationView from "./OperationView";
 import { installSdkOperation } from "../utilities/operations";
 
 export default () => {
-  const { selectedToolchain, hasDarwinSDK, checkSDK } = useIDE();
+  const { selectedToolchain, hasDarwinSDK, checkSDK, startOperation } =
+    useIDE();
   const { addToast } = useToast();
 
   const install = useCallback(async () => {
@@ -27,21 +26,11 @@ export default () => {
       addToast.error("No Xcode.xip selected");
       return;
     }
-    let promise = invoke("install_sdk", {
+    const params = {
       xcodePath: xipPath,
       toolchainPath: selectedToolchain?.path || "",
-    });
-    addToast.promise(promise, {
-      pending: "Installing SDK (this may take a while)...",
-      success: () => {
-        checkSDK();
-        return "SDK installed successfully!";
-      },
-      error: (e) => {
-        console.error("Failed to install SDK:", e);
-        return `Failed to install SDK: ${e}`;
-      },
-    });
+    };
+    startOperation(installSdkOperation, params);
   }, [selectedToolchain, addToast]);
 
   useEffect(() => {

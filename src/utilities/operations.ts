@@ -9,6 +9,29 @@ export type OperationStep = {
   title: string;
 };
 
+export type OperationState = {
+  current: Operation;
+  completed: string[];
+  started: string[];
+  failed: {
+    stepId: string;
+    extraDetails: string;
+  }[];
+};
+
+type OperationInfoUpdate = {
+  updateType: "started" | "finished";
+  stepId: string;
+};
+
+type OperationFailedUpdate = {
+  updateType: "failed";
+  stepId: string;
+  extraDetails: string;
+};
+
+export type OperationUpdate = OperationInfoUpdate | OperationFailedUpdate;
+
 export const installSdkOperation: Operation = {
   id: "install_sdk",
   title: "Installing Darwin SDK",
@@ -24,6 +47,10 @@ export const installSdkOperation: Operation = {
     {
       id: "install_toolset",
       title: "Install toolset",
+    },
+    {
+      id: "cleanup",
+      title: "Clean Up",
     },
   ],
 };
