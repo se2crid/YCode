@@ -30,7 +30,8 @@ export default () => {
       xcodePath: xipPath,
       toolchainPath: selectedToolchain?.path || "",
     };
-    startOperation(installSdkOperation, params);
+    await startOperation(installSdkOperation, params);
+    checkSDK();
   }, [selectedToolchain, addToast]);
 
   useEffect(() => {
