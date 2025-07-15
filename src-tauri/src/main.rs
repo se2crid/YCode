@@ -9,6 +9,7 @@ mod templates;
 mod windows;
 #[macro_use]
 mod builder;
+mod operation;
 mod sideloader;
 
 use device::refresh_idevice;

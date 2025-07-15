@@ -41,12 +41,24 @@ export const installSdkOperation: Operation = {
       title: "Create Stage",
     },
     {
+      id: "install_toolset",
+      title: "Download & Install toolset",
+    },
+    {
       id: "extract_xip",
       title: "Extract Xcode.xip",
     },
     {
-      id: "install_toolset",
-      title: "Install toolset",
+      id: "copy_files",
+      title: "Copy Files",
+    },
+    {
+      id: "write_metadata",
+      title: "Write Metadata",
+    },
+    {
+      id: "install_sdk",
+      title: "Install SDK",
     },
     {
       id: "cleanup",

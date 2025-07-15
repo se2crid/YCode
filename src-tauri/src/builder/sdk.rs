@@ -6,26 +6,44 @@ use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Window};
 
 use crate::builder::swift::{swift_bin, validate_toolchain};
+use crate::operation::Operation;
 
 const DARWIN_TOOLS_VERSION: &str = "1.0.1";
 
 #[tauri::command]
 pub async fn install_sdk_operation(
     app: AppHandle,
+    window: Window,
     xcode_path: String,
     toolchain_path: String,
 ) -> Result<(), String> {
+    let op = Operation::new("install_sdk".to_string(), &window);
     let work_dir = std::env::temp_dir().join("DarwinSDKBuild");
-    let res = install_sdk_internal(app, xcode_path, toolchain_path, work_dir.clone()).await;
+    let res = install_sdk_internal(app, xcode_path, toolchain_path, work_dir.clone(), &op).await;
+    op.start("cleanup")?;
     let cleanup_result = if work_dir.exists() {
         fs::remove_dir_all(&work_dir)
     } else {
         Ok(())
     };
-    match (res, cleanup_result) {
+
+    let cleanup_result_for_match = cleanup_result
+        .as_ref()
+        .map(|_| ())
+        .map_err(|e| format!("{}", e));
+
+    let cleanup_result = op.fail_if_err_map("cleanup", cleanup_result, |e| {
+        format!("Failed to remove temp dir: {}", e)
+    });
+
+    if cleanup_result.is_ok() {
+        op.complete("cleanup")?;
+    }
+
+    match (res, cleanup_result_for_match) {
         (Err(main_err), Err(cleanup_err)) => Err(format!(
             "{main_err} (additionally, failed to clean up temp dir: {cleanup_err})"
         )),
@@ -41,7 +59,19 @@ async fn install_sdk_internal(
     xcode_path: String,
     toolchain_path: String,
     work_dir: PathBuf,
+    op: &Operation<'_>,
 ) -> Result<(), String> {
+    op.start("create_stage")?;
+    if xcode_path.is_empty() || !xcode_path.ends_with(".xip") {
+        return op.fail("create_stage", "Xcode not found".to_string());
+    }
+    if toolchain_path.is_empty() {
+        return op.fail("create_stage", "Toolchain not found".to_string());
+    }
+    if !validate_toolchain(&toolchain_path) {
+        return op.fail("create_stage", "Invalid toolchain path".to_string());
+    }
+
     let swift_bin = swift_bin(&toolchain_path)?;
     let output = std::process::Command::new(swift_bin)
         .arg("sdk")
@@ -50,32 +80,31 @@ async fn install_sdk_internal(
         .output();
     if let Ok(output) = output {
         if !output.status.success() && output.status.code() != Some(1) {
-            return Err(format!(
-                "Failed to remove existing darwin SDK: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ));
+            return op.fail(
+                "create_stage",
+                format!(
+                    "Failed to remove existing darwin SDK: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ),
+            );
         }
     }
-    if xcode_path.is_empty() || !xcode_path.ends_with(".xip") {
-        return Err("Xcode not found".to_string());
-    }
-    if toolchain_path.is_empty() {
-        return Err("Toolchain not found".to_string());
-    }
-    if !validate_toolchain(&toolchain_path) {
-        return Err("Invalid toolchain path".to_string());
-    }
+
     let output_dir = work_dir.join("darwin.artifactbundle");
     if output_dir.exists() {
-        fs::remove_dir_all(&output_dir)
-            .map_err(|e| format!("Failed to remove existing output directory: {}", e))?;
+        op.fail_if_err_map("create_stage", fs::remove_dir_all(&output_dir), |e| {
+            format!("Failed to remove existing output directory: {}", e)
+        })?;
     }
-    fs::create_dir_all(&output_dir)
-        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+    op.fail_if_err_map("create_stage", fs::create_dir_all(&output_dir), |e| {
+        format!("Failed to create output directory: {}", e)
+    })?;
 
-    install_toolset(&output_dir).await?;
-
-    let dev = install_developer(&app, &output_dir, &xcode_path).await?;
+    op.move_on("create_stage", "install_toolset")?;
+    op.fail_if_err("install_toolset", install_toolset(&output_dir).await)?;
+    op.complete("install_toolset")?;
+    let dev = install_developer(&app, &output_dir, &xcode_path, op).await?;
+    op.start("write_metadata")?;
 
     let iphone_os_sdk = sdk(&dev, "iPhoneOS")?;
     let mac_os_sdk = sdk(&dev, "MacOSX")?;
@@ -98,8 +127,11 @@ async fn install_sdk_internal(
             }
         }
         ";
-    fs::write(output_dir.join("info.json"), info)
-        .map_err(|e| format!("Failed to write info.json: {}", e))?;
+    op.fail_if_err_map(
+        "write_metadata",
+        fs::write(output_dir.join("info.json"), info),
+        |e| format!("Failed to write info.json: {}", e),
+    )?;
 
     let toolset = "
         {
@@ -115,8 +147,11 @@ async fn install_sdk_internal(
             }
         }
         ";
-    fs::write(output_dir.join("toolset.json"), toolset)
-        .map_err(|e| format!("Failed to write toolset.json: {}", e))?;
+    op.fail_if_err_map(
+        "write_metadata",
+        fs::write(output_dir.join("toolset.json"), toolset),
+        |e| format!("Failed to write toolset.json: {}", e),
+    )?;
 
     let sdk_def = SDKDefinition {
         schema_version: "4.0".to_string(),
@@ -145,35 +180,56 @@ async fn install_sdk_internal(
     };
 
     let sdk_def_path = output_dir.join("swift-sdk.json");
-    fs::write(
-        sdk_def_path,
-        serde_json::to_string_pretty(&sdk_def)
-            .map_err(|e| format!("Failed to serialize SDKDefinition: {}", e))?,
-    )
-    .map_err(|e| format!("Failed to write swift-sdk.json: {}", e))?;
+    op.fail_if_err_map(
+        "write_metadata",
+        fs::write(
+            sdk_def_path,
+            op.fail_if_err_map(
+                "write_metadata",
+                serde_json::to_string_pretty(&sdk_def),
+                |e| format!("Failed to serialize SDKDefinition: {}", e),
+            )?,
+        ),
+        |e| format!("Failed to write swift-sdk.json: {}", e),
+    )?;
+
     let sdk_version_path = output_dir.join("darwin-sdk-version.txt");
-    fs::write(&sdk_version_path, "develop")
-        .map_err(|e| format!("Failed to write darwin-sdk-version.txt: {}", e))?;
+    op.fail_if_err_map(
+        "write_metadata",
+        fs::write(&sdk_version_path, "develop"),
+        |e| format!("Failed to write darwin-sdk-version.txt: {}", e),
+    )?;
+    op.move_on("write_metadata", "install_sdk")?;
 
     let path = PathBuf::from(toolchain_path);
     let swift_path = path.join("usr").join("bin").join("swift");
     if !swift_path.exists() || !swift_path.is_file() {
-        return Err("Swift binary not found in toolchain".to_string());
+        return op.fail(
+            "install_sdk",
+            "Swift binary not found in toolchain".to_string(),
+        );
     }
 
-    let output = std::process::Command::new(swift_path)
-        .arg("sdk")
-        .arg("install")
-        .arg(output_dir.to_string_lossy().to_string())
-        .output()
-        .map_err(|e| format!("Failed to execute swift command: {}", e))?;
+    let output = op.fail_if_err_map(
+        "install_sdk",
+        std::process::Command::new(swift_path)
+            .arg("sdk")
+            .arg("install")
+            .arg(output_dir.to_string_lossy().to_string())
+            .output(),
+        |e| format!("Failed to execute swift command: {}", e),
+    )?;
 
     if !output.status.success() {
-        return Err(format!(
-            "Swift command failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
+        return op.fail(
+            "install_sdk",
+            format!(
+                "Swift command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        );
     }
+    op.complete("install_sdk")?;
 
     Ok(())
 }
@@ -236,51 +292,79 @@ async fn install_developer(
     app: &AppHandle,
     output_path: &PathBuf,
     xcode_path: &str,
+    op: &Operation<'_>,
 ) -> Result<PathBuf, String> {
+    op.start("extract_xip")?;
     let dev_stage = output_path.join("DeveloperStage");
-    fs::create_dir_all(&dev_stage)
-        .map_err(|e| format!("Failed to create DeveloperStage directory: {}", e))?;
+    op.fail_if_err_map("extract_xip", fs::create_dir_all(&dev_stage), |e| {
+        format!("Failed to create DeveloperStage directory: {}", e)
+    })?;
 
-    let unxip_path = app
-        .path()
-        .resolve("unxip", tauri::path::BaseDirectory::Resource)
-        .map_err(|e| format!("Failed to resolve unxip path: {}", e))?;
+    let unxip_path = op.fail_if_err_map(
+        "extract_xip",
+        app.path()
+            .resolve("unxip", tauri::path::BaseDirectory::Resource),
+        |e| format!("Failed to resolve unxip path: {}", e),
+    )?;
 
     let status = Command::new(unxip_path)
         .current_dir(&dev_stage)
         .arg(xcode_path)
-        .status();
+        .output();
     if let Err(e) = status {
-        return Err(format!("Failed to run unxip: {}", e));
+        return op.fail("extract_xip", format!("Failed to run unxip: {}", e));
     }
-    if !status.unwrap().success() {
-        return Err("Failed to unxip Xcode".to_string());
+    let status = status.unwrap();
+    if !status.status.success() {
+        return op.fail(
+            "extract_xip",
+            format!(
+                "{}\nProcess exited with code {}",
+                String::from_utf8_lossy(&status.stderr.trim_ascii()),
+                status.status.code().unwrap_or(0)
+            ),
+        );
     }
 
-    let app_dirs = fs::read_dir(&dev_stage)
-        .map_err(|e| format!("Failed to read DeveloperStage directory: {}", e))?
+    let app_dirs = op
+        .fail_if_err_map("extract_xip", fs::read_dir(&dev_stage), |e| {
+            format!("Failed to read DeveloperStage directory: {}", e)
+        })?
         .filter_map(Result::ok)
         .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "app"))
         .collect::<Vec<_>>();
     if app_dirs.len() != 1 {
-        return Err(format!(
-            "Expected one .app in DeveloperStage, found {}",
-            app_dirs.len()
-        ));
+        return op.fail(
+            "extract_xip",
+            format!(
+                "Expected one .app in DeveloperStage, found {}",
+                app_dirs.len()
+            ),
+        );
     }
 
+    op.move_on("extract_xip", "copy_files")?;
     let app_path = app_dirs[0].path();
     let dev = output_path.join("Developer");
-    fs::create_dir_all(&dev).map_err(|e| format!("Failed to create Developer directory: {}", e))?;
+    op.fail_if_err_map("copy_files", fs::create_dir_all(&dev), |e| {
+        format!("Failed to create Developer directory: {}", e)
+    })?;
 
     let contents_developer = app_path.join("Contents/Developer");
     if !contents_developer.exists() {
-        return Err("Contents/Developer not found in .app".to_string());
+        return op.fail(
+            "copy_files",
+            "Contents/Developer not found in .app".to_string(),
+        );
     }
-    copy_developer(&contents_developer, &dev, Path::new("Contents/Developer"))
-        .map_err(|e| format!("Failed to copy Developer: {}", e))?;
-    fs::remove_dir_all(&dev_stage)
-        .map_err(|e| format!("Failed to remove DeveloperStage directory: {}", e))?;
+
+    op.fail_if_err(
+        "copy_files",
+        copy_developer(&contents_developer, &dev, Path::new("Contents/Developer")),
+    )?;
+    op.fail_if_err_map("copy_files", fs::remove_dir_all(&dev_stage), |e| {
+        format!("Failed to remove DeveloperStage directory: {}", e)
+    })?;
 
     for platform in ["iPhoneOS", "MacOSX", "iPhoneSimulator"] {
         let lib = "../../../../../Library";
@@ -310,7 +394,7 @@ async fn install_developer(
 
         for (name, target) in &links {
             let link_path = dest.join(name);
-            symlink(target, &link_path).map_err(|e| {
+            op.fail_if_err_map("copy_files", symlink(target, &link_path), |e| {
                 format!(
                     "Failed to create symlink {:?} -> {:?}: {}",
                     link_path, target, e
@@ -318,6 +402,8 @@ async fn install_developer(
             })?;
         }
     }
+
+    op.complete("copy_files")?;
 
     Ok(dev)
 }

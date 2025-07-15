@@ -282,6 +282,12 @@ export const IDEProvider: React.FC<{
       operation: Operation,
       params: { [key: string]: any }
     ): Promise<void> => {
+      setOperationState({
+        current: operation,
+        started: [],
+        failed: [],
+        completed: [],
+      });
       return new Promise<void>(async (resolve, reject) => {
         const unlistenFn = await listen<OperationUpdate>(
           "operation_" + operation.id,
@@ -315,7 +321,7 @@ export const IDEProvider: React.FC<{
           }
         );
         try {
-          await invoke(operation.id, params);
+          await invoke(operation.id + "_operation", params);
           unlistenFn();
           resolve();
         } catch (e) {

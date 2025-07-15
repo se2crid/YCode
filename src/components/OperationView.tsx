@@ -11,7 +11,7 @@ import {
 import { OperationState } from "../utilities/operations";
 import "./OperationView.css";
 import { SuccessIcon, ErrorIcon, StyledLoadingIcon } from "react-toast-plus";
-import { PanoramaFishEye } from "@mui/icons-material";
+import { PanoramaFishEye, DoNotDisturbOn } from "@mui/icons-material";
 
 export default ({
   operationState,
@@ -21,9 +21,9 @@ export default ({
   closeMenu: () => void;
 }) => {
   const operation = operationState.current;
-  const failed = operationState.failed.length > 0;
+  const opFailed = operationState.failed.length > 0;
   const done =
-    failed || operationState.completed.length == operation.steps.length;
+    opFailed || operationState.completed.length == operation.steps.length;
 
   return (
     <Modal
@@ -38,7 +38,7 @@ export default ({
           <Typography level="h3">{operation?.title}</Typography>
           <Typography level="body-lg">
             {done
-              ? failed
+              ? opFailed
                 ? "Operation failed. Please see steps for details."
                 : "Operation completed!"
               : "Please wait..."}
@@ -57,12 +57,24 @@ export default ({
                   {failed && <ErrorIcon />}
                   {!failed && completed && <SuccessIcon />}
                   {!failed && !completed && started && <StyledLoadingIcon />}
-                  {notStarted && (
+                  {notStarted && !opFailed && (
                     <PanoramaFishEye
                       sx={{
                         width: "100%",
                         height: "100%",
                         color: "neutral.500",
+
+                        transform: "scale(1.2)",
+                      }}
+                    />
+                  )}
+                  {notStarted && opFailed && (
+                    <DoNotDisturbOn
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        color: "neutral.500",
+                        transform: "scale(1.2)",
                       }}
                     />
                   )}
