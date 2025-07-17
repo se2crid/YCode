@@ -12,12 +12,12 @@ use std::{io::Write, path::PathBuf};
 use tauri::{Emitter, Manager};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 
-pub async fn sideload_ipa(
+pub async fn sideload_app(
     handle: &tauri::AppHandle,
     window: tauri::Window,
     anisette_server: String,
     device: DeviceInfo,
-    ipa_path: PathBuf,
+    app_path: PathBuf,
 ) -> Result<(), String> {
     if device.uuid.is_empty() {
         return emit_error_and_return(&window, "No device selected");
@@ -71,7 +71,7 @@ pub async fn sideload_ipa(
         }
     };
 
-    let mut app = crate::sideloader::application::Application::new(ipa_path);
+    let mut app = crate::sideloader::application::Application::new(app_path);
     let is_sidestore = app.bundle.bundle_identifier().unwrap_or("") == "com.SideStore.SideStore";
     let main_app_bundle_id = match app.bundle.bundle_identifier() {
         Some(id) => id.to_string(),

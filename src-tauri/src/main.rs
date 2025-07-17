@@ -59,7 +59,7 @@ fn main() {
         .expect("error while running tauri application");
 }
 
-pub fn emit_error_and_return(window: &tauri::Window, msg: &str) -> Result<(), String> {
+pub fn emit_error_and_return<T>(window: &tauri::Window, msg: &str) -> Result<T, String> {
     window.emit("build-output", msg.to_string()).ok();
     window.emit("build-output", "command.done.999").ok();
     Err(msg.to_string())

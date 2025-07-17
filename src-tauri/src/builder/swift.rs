@@ -5,6 +5,7 @@ use crate::{
     },
     device::DeviceInfo,
     emit_error_and_return,
+    sideloader::sideload::sideload_app,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -13,7 +14,7 @@ use std::{
     process::{Command, Stdio},
     thread,
 };
-use tauri::Emitter;
+use tauri::{Emitter, Window};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -199,12 +200,12 @@ fn get_swiftly_path() -> Option<String> {
 }
 
 async fn build_swift_internal(
-    window: tauri::Window,
-    folder: String,
-    toolchain_path: String,
+    window: &Window,
+    folder: &str,
+    toolchain_path: &str,
     build_settings: BuildSettings,
     emit_exit_code: bool,
-) -> Result<(), String> {
+) -> Result<PathBuf, String> {
     let config = match ProjectConfig::load(PathBuf::from(&folder), &toolchain_path) {
         Ok(config) => config,
         Err(e) => {
@@ -227,17 +228,14 @@ async fn build_swift_internal(
     pipe_command(&mut cmd, &window, emit_exit_code).await?;
 
     match pack(PathBuf::from(&folder), &config, &build_settings) {
-        Ok(_) => {
+        Ok(app) => {
             window
                 .emit("build-output", "Pack Success")
                 .expect("failed to send output");
+            Ok(app)
         }
-        Err(e) => {
-            return emit_error_and_return(&window, &format!("Failed to pack app: {}", e));
-        }
+        Err(e) => emit_error_and_return(&window, &format!("Failed to pack app: {}", e)),
     }
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -252,7 +250,10 @@ pub async fn build_swift(
         return Err("Invalid toolchain path".to_string());
     }
 
-    build_swift_internal(window, folder, toolchain_path, build_settings, true).await
+    let path =
+        build_swift_internal(&window, &folder, &toolchain_path, build_settings, true).await?;
+
+    todo!("Zip into .ipa");
 }
 
 #[tauri::command]
@@ -287,9 +288,12 @@ pub async fn deploy_swift(
         return Err("Invalid toolchain path".to_string());
     }
 
-    build_swift_internal(window, folder, toolchain_path, build_settings, false).await?;
+    let app =
+        build_swift_internal(&window, &folder, &toolchain_path, build_settings, false).await?;
 
-    todo!("Bundle into .app and deploy")
+    sideload_app(&handle, window, anisette_server, device, app)
+        .await
+        .map_err(|e| format!("Failed to sideload app: {}", e))
 }
 
 pub async fn pipe_command(

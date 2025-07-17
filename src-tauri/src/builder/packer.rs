@@ -8,7 +8,7 @@ pub fn pack(
     project_path: PathBuf,
     config: &ProjectConfig,
     build_settings: &BuildSettings,
-) -> Result<(), String> {
+) -> Result<PathBuf, String> {
     let workdir = project_path.join(".ycode");
     if !workdir.exists() {
         std::fs::create_dir_all(&workdir)
@@ -65,5 +65,5 @@ pub fn pack(
         .run()
         .map_err(|e| format!("Failed to copy resources: {}", e))?;
 
-    Ok(())
+    Ok(app_path)
 }
