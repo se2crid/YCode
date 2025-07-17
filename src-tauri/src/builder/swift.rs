@@ -1,4 +1,11 @@
-use crate::{device::DeviceInfo, emit_error_and_return};
+use crate::{
+    builder::{
+        config::{BuildSettings, ProjectConfig},
+        packer::pack,
+    },
+    device::DeviceInfo,
+    emit_error_and_return,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{BufRead, BufReader},
@@ -195,19 +202,42 @@ async fn build_swift_internal(
     window: tauri::Window,
     folder: String,
     toolchain_path: String,
-    debug: bool,
+    build_settings: BuildSettings,
     emit_exit_code: bool,
 ) -> Result<(), String> {
+    let config = match ProjectConfig::load(PathBuf::from(&folder), &toolchain_path) {
+        Ok(config) => config,
+        Err(e) => {
+            return emit_error_and_return(&window, &format!("Failed to load project config: {}", e))
+        }
+    };
     let swift_bin = swift_bin(&toolchain_path)?;
     let mut cmd = Command::new(swift_bin);
     cmd.arg("build")
         .arg("-c")
-        .arg(if debug { "debug" } else { "release" })
+        .arg(if build_settings.debug {
+            "debug"
+        } else {
+            "release"
+        })
         .arg("--swift-sdk")
         .arg("arm64-apple-ios")
-        .current_dir(folder);
+        .current_dir(&folder);
 
-    pipe_command(&mut cmd, window, emit_exit_code).await
+    pipe_command(&mut cmd, &window, emit_exit_code).await?;
+
+    match pack(PathBuf::from(&folder), &config, &build_settings) {
+        Ok(_) => {
+            window
+                .emit("build-output", "Pack Success")
+                .expect("failed to send output");
+        }
+        Err(e) => {
+            return emit_error_and_return(&window, &format!("Failed to pack app: {}", e));
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -217,11 +247,12 @@ pub async fn build_swift(
     toolchain_path: String,
     debug: bool,
 ) -> Result<(), String> {
+    let build_settings = BuildSettings { debug };
     if !validate_toolchain(&toolchain_path) {
         return Err("Invalid toolchain path".to_string());
     }
 
-    build_swift_internal(window, folder, toolchain_path, debug, true).await
+    build_swift_internal(window, folder, toolchain_path, build_settings, true).await
 }
 
 #[tauri::command]
@@ -238,7 +269,7 @@ pub async fn clean_swift(
         .emit("build-output", "Cleaning...")
         .expect("failed to send output");
 
-    pipe_command(&mut cmd, window, true).await
+    pipe_command(&mut cmd, &window, true).await
 }
 
 #[tauri::command]
@@ -251,18 +282,19 @@ pub async fn deploy_swift(
     toolchain_path: String,
     debug: bool,
 ) -> Result<(), String> {
+    let build_settings = BuildSettings { debug };
     if !validate_toolchain(&toolchain_path) {
         return Err("Invalid toolchain path".to_string());
     }
 
-    build_swift_internal(window, folder, toolchain_path, debug, false).await?;
+    build_swift_internal(window, folder, toolchain_path, build_settings, false).await?;
 
     todo!("Bundle into .app and deploy")
 }
 
 pub async fn pipe_command(
     cmd: &mut Command,
-    window: tauri::Window,
+    window: &tauri::Window,
     emit_exit_code: bool,
 ) -> Result<(), String> {
     let name = "build-output";

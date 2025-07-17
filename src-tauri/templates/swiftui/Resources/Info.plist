@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>{{projectName}}</string>
+	<string>[[product]]</string>
 	<key>CFBundleExecutable</key>
-	<string>{{projectName}}</string>
+	<string>[[product]]</string>
 	<key>CFBundleIcons</key>
 	<dict>
 		<key>CFBundlePrimaryIcon</key>
@@ -40,7 +40,7 @@
 		</dict>
 	</dict>
 	<key>CFBundleIdentifier</key>
-	<string>{{bundleId}}</string>
+	<string>[[bundle_id]]</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>
@@ -52,7 +52,9 @@
 		<string>iPhoneOS</string>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>[[version_num]]</string>
+	<key>CFBundleShortVersionString</key>
+	<string>[[version_string]]</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIDeviceFamily</key>

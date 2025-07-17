@@ -37,6 +37,7 @@ tar = "0.4.44"
 reqwest = "0.12.20"
 flate2 = "1.1.2"
 regex = "1"
+toml = "0.9.2"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
