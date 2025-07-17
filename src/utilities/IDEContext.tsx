@@ -22,16 +22,31 @@ import {
   Typography,
 } from "@mui/joy";
 import { useCommandRunner } from "./Command";
+import { useStore } from "./StoreContext";
+import { Operation, OperationState, OperationUpdate } from "./operations";
+import OperationView from "../components/OperationView";
 
 export interface IDEContextType {
   initialized: boolean;
   isWindows: boolean;
   hasWSL: boolean;
-  hasTheos: boolean;
+  hasDarwinSDK: boolean;
+  toolchains: ListToolchainResponse | null;
+  selectedToolchain: Toolchain | null;
   devices: DeviceInfo[];
   openFolderDialog: () => void;
   consoleLines: string[];
   setConsoleLines: React.Dispatch<React.SetStateAction<string[]>>;
+  scanToolchains: () => Promise<void>;
+  checkSDK: () => Promise<void>;
+  locateToolchain: () => Promise<void>;
+  startOperation: (
+    operation: Operation,
+    params: { [key: string]: any }
+  ) => Promise<void>;
+  setSelectedToolchain: (
+    value: Toolchain | ((oldValue: Toolchain | null) => Toolchain | null) | null
+  ) => void;
 }
 
 export type DeviceInfo = {
@@ -40,6 +55,28 @@ export type DeviceInfo = {
   uuid: string;
 };
 
+export type Toolchain = {
+  version: string;
+  path: string;
+  isSwiftly: boolean;
+};
+
+type ListToolchainResponseWithSwiftly = {
+  swiftlyInstalled: true;
+  swiftlyVersion: string;
+  toolchains: Toolchain[];
+};
+
+type ListToolchainResponseWithoutSwiftly = {
+  swiftlyInstalled: false;
+  swiftlyVersion: null;
+  toolchains: Toolchain[];
+};
+
+export type ListToolchainResponse =
+  | ListToolchainResponseWithSwiftly
+  | ListToolchainResponseWithoutSwiftly;
+
 export const IDEContext = createContext<IDEContextType | null>(null);
 
 export const IDEProvider: React.FC<{
@@ -47,18 +84,72 @@ export const IDEProvider: React.FC<{
 }> = ({ children }) => {
   const [isWindows, setIsWindows] = useState<boolean>(false);
   const [hasWSL, setHasWSL] = useState<boolean>(false);
-  const [hasTheos, setHasTheos] = useState<boolean>(false);
+  const [toolchains, setToolchains] = useState<ListToolchainResponse | null>(
+    null
+  );
+  const [hasDarwinSDK, setHasDarwinSDK] = useState<boolean>(false);
   const [initialized, setInitialized] = useState(false);
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [consoleLines, setConsoleLines] = useState<string[]>([]);
+  const [selectedToolchain, setSelectedToolchain] = useStore<Toolchain | null>(
+    "swift/selected-toolchain",
+    null
+  );
+
+  const checkSDK = useCallback(async () => {
+    try {
+      let result = await invoke<boolean>("has_darwin_sdk", {
+        toolchainPath: selectedToolchain?.path || "",
+      });
+      setHasDarwinSDK(result);
+    } catch (e) {
+      console.error("Failed to check for SDK:", e);
+      setHasDarwinSDK(false);
+    }
+  }, [selectedToolchain]);
+
+  const scanToolchains = useCallback(() => {
+    return invoke<ListToolchainResponse>("get_swiftly_toolchains").then(
+      (response) => {
+        if (response) {
+          setToolchains(response);
+        }
+      }
+    );
+  }, []);
+
+  const locateToolchain = useCallback(async () => {
+    const path = await dialog.open({
+      directory: true,
+      multiple: false,
+    });
+    if (!path) {
+      addToast.error("No path selected");
+      return;
+    }
+    if (await invoke("validate_toolchain", { toolchainPath: path })) {
+      const info = await invoke<Toolchain>("get_toolchain_info", {
+        toolchainPath: path,
+      }).catch((error) => {
+        console.error("Error getting toolchain info:", error);
+        addToast.error("Failed to get toolchain info");
+        return null;
+      });
+      if (!info) {
+        addToast.error("Invalid toolchain path or version not found");
+        return;
+      }
+      if (info) {
+        setSelectedToolchain(info);
+      }
+    } else {
+      addToast.error("Invalid toolchain path");
+    }
+  }, []);
 
   useEffect(() => {
     let initPromises: Promise<void>[] = [];
-    initPromises.push(
-      invoke("has_theos").then((response) => {
-        setHasTheos(response as boolean);
-      })
-    );
+    initPromises.push(scanToolchains());
     initPromises.push(
       invoke("has_wsl").then((response) => {
         setHasWSL(response as boolean);
@@ -69,16 +160,21 @@ export const IDEProvider: React.FC<{
         setIsWindows(response as boolean);
       })
     );
+    initPromises.push(
+      invoke("has_darwin_sdk", {
+        toolchainPath: selectedToolchain?.path ?? "",
+      }).then((response) => {
+        setHasDarwinSDK(response as boolean);
+      })
+    );
 
     Promise.all(initPromises)
       .then(() => {
         setInitialized(true);
       })
       .catch((error) => {
-        console.error("Error initializing IDE context:", error);
-        alert(
-          "An error occurred while initializing the IDE context. Please check the console for details."
-        );
+        console.error("Error initializing IDE context: ", error);
+        alert("An error occurred while initializing the IDE context: " + error);
       });
   }, []);
 
@@ -177,25 +273,100 @@ export const IDEProvider: React.FC<{
 
   const { cancelCommand } = useCommandRunner();
 
+  const [operationState, setOperationState] = useState<OperationState | null>(
+    null
+  );
+
+  const startOperation = useCallback(
+    async (
+      operation: Operation,
+      params: { [key: string]: any }
+    ): Promise<void> => {
+      setOperationState({
+        current: operation,
+        started: [],
+        failed: [],
+        completed: [],
+      });
+      return new Promise<void>(async (resolve, reject) => {
+        const unlistenFn = await listen<OperationUpdate>(
+          "operation_" + operation.id,
+          (event) => {
+            setOperationState((old) => {
+              if (old == null) return null;
+              if (event.payload.updateType === "started") {
+                return {
+                  ...old,
+                  started: [...old.started, event.payload.stepId],
+                };
+              } else if (event.payload.updateType === "finished") {
+                return {
+                  ...old,
+                  completed: [...old.completed, event.payload.stepId],
+                };
+              } else if (event.payload.updateType === "failed") {
+                return {
+                  ...old,
+                  failed: [
+                    ...old.failed,
+                    {
+                      stepId: event.payload.stepId,
+                      extraDetails: event.payload.extraDetails,
+                    },
+                  ],
+                };
+              }
+              return old;
+            });
+          }
+        );
+        try {
+          await invoke(operation.id + "_operation", params);
+          unlistenFn();
+          resolve();
+        } catch (e) {
+          unlistenFn();
+          reject(e);
+        }
+      });
+    },
+    [setOperationState]
+  );
+
   const contextValue = useMemo(
     () => ({
       isWindows,
       hasWSL,
-      hasTheos,
+      toolchains,
       initialized,
       devices,
       openFolderDialog,
       consoleLines,
       setConsoleLines,
+      selectedToolchain,
+      scanToolchains,
+      locateToolchain,
+      setSelectedToolchain,
+      hasDarwinSDK,
+      checkSDK,
+      startOperation,
     }),
     [
       isWindows,
       hasWSL,
-      hasTheos,
+      toolchains,
       initialized,
       devices,
       openFolderDialog,
       consoleLines,
+      setConsoleLines,
+      selectedToolchain,
+      scanToolchains,
+      locateToolchain,
+      setSelectedToolchain,
+      hasDarwinSDK,
+      checkSDK,
+      startOperation,
     ]
   );
 
@@ -330,6 +501,14 @@ export const IDEProvider: React.FC<{
           </form>
         </ModalDialog>
       </Modal>
+      {operationState && (
+        <OperationView
+          operationState={operationState}
+          closeMenu={() => {
+            setOperationState(null);
+          }}
+        />
+      )}
     </IDEContext.Provider>
   );
 };

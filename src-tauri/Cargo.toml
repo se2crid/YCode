@@ -19,7 +19,7 @@ tauri-plugin-fs = { version = "2", features= ["watch"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
-idevice = { version = "0.1.35", features = ["full"] }
+idevice = { version = "0.1.35", features = ["usbmuxd", "afc", "installation_proxy"] }
 futures = "0.3.31"
 keyring = "2"
 icloud_auth = {path = "./apple-private-apis/icloud-auth" }
@@ -33,6 +33,11 @@ zip = { version = "4.1.0", default-features = false, features = ["deflate"] }
 uuid = "1.17.0"
 walkdir = "2.5.0"
 dircpy = "0.3.19"
+tar = "0.4.44"
+reqwest = "0.12.20"
+flate2 = "1.1.2"
+regex = "1"
+toml = "0.9.2"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

@@ -224,7 +224,7 @@ pub async fn ensure_device_registered(
         .list_devices(DeveloperDeviceType::Ios, team)
         .await
         .map_err(|e| {
-            emit_error_and_return(window, &format!("Failed to list devices: {:?}", e))
+            emit_error_and_return::<()>(window, &format!("Failed to list devices: {:?}", e))
                 .err()
                 .unwrap()
         })?;

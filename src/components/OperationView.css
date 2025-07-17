@@ -1,0 +1,32 @@
+.operation-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-xl);
+}
+
+.operation-step-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+
+  font-size: 1.5rem;
+}
+
+.operation-step {
+  display: flex;
+  gap: var(--padding-md);
+  align-items: center;
+}
+
+.operation-extra-details {
+  background-color: black;
+  overflow-x: auto;
+  padding: var(--padding-md);
+  border-radius: 1px;
+  margin: 0;
+}
+
+.operation-step-internal {
+  flex-shrink: 1;
+}

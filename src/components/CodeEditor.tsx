@@ -42,6 +42,7 @@ const getLanguage = async (filename: string) => {
     xm: "objective-c",
     xmi: "objective-c",
     sh: "shell",
+    toml: "toml",
   };
   return extToLang[ext] || "plaintext";
 };
