@@ -29,16 +29,6 @@ const defaultFields = {
     label: "Bundle Identifier",
     default: "com.example.myproject",
   },
-  projectDescription: {
-    type: "text",
-    label: "Project Description",
-    default: "An awesome application",
-  },
-  author: {
-    type: "text",
-    label: "Author",
-    default: "Steve Jobs",
-  },
 };
 
 export const templates: Template[] = [
