@@ -8,7 +8,7 @@ use std::process::Command;
 use tauri::{AppHandle, Manager, Window};
 
 use crate::builder::swift::{swift_bin, validate_toolchain};
-use crate::builder::symlink::symlink;
+use crate::builder::crossplatform::symlink;
 use crate::operation::Operation;
 
 const DARWIN_TOOLS_VERSION: &str = "1.0.1";
