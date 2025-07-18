@@ -3,12 +3,12 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::os::unix::fs::symlink;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager, Window};
 
 use crate::builder::swift::{swift_bin, validate_toolchain};
+use crate::builder::symlink::symlink;
 use crate::operation::Operation;
 
 const DARWIN_TOOLS_VERSION: &str = "1.0.1";
@@ -394,7 +394,7 @@ async fn install_developer(
 
         for (name, target) in &links {
             let link_path = dest.join(name);
-            op.fail_if_err_map("copy_files", symlink(target, &link_path), |e| {
+            op.fail_if_err_map("copy_files", symlink(target, &link_path.to_string_lossy().to_string()), |e| {
                 format!(
                     "Failed to create symlink {:?} -> {:?}: {}",
                     link_path, target, e
@@ -409,8 +409,6 @@ async fn install_developer(
 }
 
 fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
-    use std::os::unix::fs as unix_fs;
-
     for entry in fs::read_dir(src).map_err(|e| format!("Failed to read dir: {}", e))? {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let file_name = entry.file_name();
@@ -443,7 +441,7 @@ fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dir: {}", e))?;
             }
-            unix_fs::symlink(&target, &dst_path)
+            symlink(&target.to_string_lossy().to_string(), &dst_path.to_string_lossy().to_string())
                 .map_err(|e| format!("Failed to create symlink: {}", e))?;
         } else if metadata.is_dir() {
             fs::create_dir_all(&dst_path).map_err(|e| format!("Failed to create dir: {}", e))?;

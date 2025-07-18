@@ -1,23 +1,12 @@
 use std::process::{Command, Stdio};
+use wslpath2::{convert, Conversion};
 
 pub fn windows_to_wsl_path(path: &str) -> String {
-    let (drive_letter_index, rest_of_path_index) = if path.starts_with("\\\\?\\") {
-        (4, 6)
-    } else {
-        (0, 2)
-    };
-
-    let drive_letter = path[drive_letter_index..]
-        .chars()
-        .next()
-        .unwrap()
-        .to_ascii_lowercase();
-    let rest_of_path = path[rest_of_path_index..].replace("\\", "/");
-    format!("/mnt/{}/{}", drive_letter, rest_of_path)
+    convert(path, None, Conversion::WslToWindows, false).unwrap()
 }
 
 #[tauri::command]
-pub async fn has_wsl() -> bool {
+pub fn has_wsl() -> bool {
     if !is_windows() {
         return false;
     }

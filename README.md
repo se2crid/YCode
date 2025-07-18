@@ -10,7 +10,7 @@ Coming soon...
 
 YCode is currently in development and not recommended for use. However, if you want to try it out, your feedback would be greatly appreciated!
 
-**Windows is not supported yet (but it will be). Please do not open windows related issues at this time.**
+**Windows is not supported yet. Work to support it is currently ongoing. Please do not open windows related issues at this time.**
 
 You can download the latest build from [actions](https://github.com/nab138/YCode/actions/workflows/build.yml).
 
