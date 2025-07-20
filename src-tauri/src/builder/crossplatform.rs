@@ -1,7 +1,6 @@
 #[cfg(target_os = "windows")]
 use crate::windows::has_wsl;
 use std::process::{Command, Stdio};
-use std::env::VarError;
 
 pub fn symlink(target: &str, link: &str) -> std::io::Result<()> {
     #[cfg(target_os = "linux")]

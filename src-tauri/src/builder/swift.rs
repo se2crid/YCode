@@ -1,7 +1,6 @@
 use crate::{
     builder::{
-        config::{BuildSettings, ProjectConfig},
-        packer::pack,
+        config::{BuildSettings, ProjectConfig}, crossplatform::linux_env, packer::pack
     },
     device::DeviceInfo,
     emit_error_and_return,
@@ -126,9 +125,6 @@ pub async fn get_toolchain_info(
 
 #[tauri::command]
 pub async fn get_swiftly_toolchains() -> Result<ToolchainResult, String> {
-    if !cfg!(target_os = "linux") {
-        return Err("YCode only supports linux right now".to_string());
-    }
     let swiftly_home_dir = get_swiftly_path();
     if let Some(_) = swiftly_home_dir {
         let config = get_swiftly_config()?;
@@ -184,11 +180,11 @@ fn get_swiftly_config() -> Result<SwiftlyConfig, String> {
 }
 
 fn get_swiftly_path() -> Option<String> {
-    let swiftly_home_dir = std::env::var("SWIFTLY_HOME_DIR").unwrap_or_default();
+    let swiftly_home_dir = linux_env("SWIFTLY_HOME_DIR").unwrap_or_default();
     if !swiftly_home_dir.is_empty() {
         return Some(swiftly_home_dir);
     }
-    let home_dir = std::env::var("HOME").unwrap_or_default();
+    let home_dir = linux_env("HOME").unwrap_or_default();
     if !home_dir.is_empty() {
         let swiftly_path = format!("{}/.local/share/swiftly", home_dir);
         if std::path::Path::new(&swiftly_path).exists() {

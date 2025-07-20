@@ -10,7 +10,11 @@ export default () => {
     toolchains,
     scanToolchains,
     locateToolchain,
+    isWindows,
+    hasWSL
   } = useIDE();
+
+  const isWindowsReady = !isWindows || hasWSL;
 
   const allToolchains = useMemo(() => {
     let all: Toolchain[] = [];
@@ -43,7 +47,15 @@ export default () => {
           ? `Swiftly Detected: ${toolchains.swiftlyVersion}`
           : "YCode was unable to detect Swiftly."}
       </Typography>
-      {toolchains !== null && allToolchains.length === 0 && (
+            {!isWindowsReady && toolchains !== null && allToolchains.length === 0 && (
+        <Typography
+          level="body-md"
+          color="danger"
+        >
+          Install WSL before swift, as you need to install swift inside of WSL.
+        </Typography>
+      )}
+      {isWindowsReady && toolchains !== null && allToolchains.length === 0 && (
         <Typography
           level="body-md"
           style={{ marginBottom: "var(--padding-md)" }}
@@ -79,7 +91,7 @@ export default () => {
                     toolchain.version +
                     (isCompatable(toolchain) ? "" : " - Not Compatable")
                   }
-                  disabled={!isCompatable(toolchain)}
+                  disabled={!isCompatable(toolchain) || !isWindowsReady}
                   value={stringifyToolchain(toolchain)}
                   variant="outlined"
                   overlay
@@ -109,13 +121,14 @@ export default () => {
         }}
       >
         {
-          <Button variant="soft" onClick={locateToolchain}>
+          <Button variant="soft" onClick={locateToolchain} disabled={!isWindowsReady}>
             Locate Existing Toolchain
           </Button>
         }
         {toolchains?.swiftlyInstalled === false &&
           selectedToolchain === null && (
             <Button
+              disabled={!isWindowsReady}
               variant="soft"
               onClick={() => {
                 openUrl("https://swift.org/install/");
@@ -126,6 +139,7 @@ export default () => {
           )}
         {
           <Button
+            disabled={!isWindowsReady}
             variant="soft"
             onClick={() => {
               scanToolchains();

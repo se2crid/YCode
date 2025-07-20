@@ -7,9 +7,11 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { installSdkOperation } from "../utilities/operations";
 
 export default () => {
-  const { selectedToolchain, hasDarwinSDK, checkSDK, startOperation } =
+  const { selectedToolchain, hasDarwinSDK, checkSDK, startOperation, isWindows, hasWSL } =
     useIDE();
   const { addToast } = useToast();
+
+  const isWindowsReady = !isWindows || hasWSL;
 
   const install = useCallback(async () => {
     let xipPath = await open({
@@ -52,9 +54,9 @@ export default () => {
       }}
     >
       <Typography level="body-md" color={hasDarwinSDK ? "success" : "danger"}>
-        {hasDarwinSDK
+        {isWindowsReady ? (hasDarwinSDK
           ? "Darwin SDK is installed!"
-          : "Darwin SDK is not installed."}
+          : "Darwin SDK is not installed.") : "Install WSL and Swift first."}
       </Typography>
       <div
         style={{
