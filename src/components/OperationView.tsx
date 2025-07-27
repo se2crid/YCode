@@ -32,7 +32,7 @@ export default ({
         if (done) closeMenu();
       }}
     >
-      <ModalDialog>
+      <ModalDialog sx={{minWidth: "40rem", maxWidth: "90vw"}}>
         {done && <ModalClose />}
         <div>
           <Typography level="h3">{operation?.title}</Typography>
@@ -41,7 +41,7 @@ export default ({
               ? opFailed
                 ? "Operation failed. Please see steps for details."
                 : "Operation completed!"
-              : "Please wait..."}
+              : "Please wait (this may take a while)..."}
           </Typography>
         </div>
         <Divider />
@@ -89,7 +89,7 @@ export default ({
                   {failed && (
                     <Accordion sx={{ marginTop: 0 }}>
                       <AccordionSummary>
-                        <Typography level="body-sm">Show Details</Typography>
+                        <Typography level="body-sm">Details</Typography>
                       </AccordionSummary>
                       <AccordionDetails>
                         <pre className="operation-extra-details">

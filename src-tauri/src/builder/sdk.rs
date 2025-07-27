@@ -8,8 +8,11 @@ use std::process::Command;
 use tauri::{AppHandle, Manager, Window};
 
 use crate::builder::swift::{SwiftBin, validate_toolchain};
-use crate::builder::crossplatform::symlink;
+use crate::builder::crossplatform::{linux_path, symlink};
 use crate::operation::Operation;
+
+#[cfg(target_os = "windows")]
+use crate::windows::{windows_to_wsl_path};
 
 const DARWIN_TOOLS_VERSION: &str = "1.0.1";
 
@@ -72,7 +75,11 @@ async fn install_sdk_internal(
         return op.fail("create_stage", "Invalid toolchain path".to_string());
     }
 
-    let swift_bin = SwiftBin::new(&toolchain_path)?;
+    let swift_bin = SwiftBin::new(&toolchain_path);
+    if swift_bin.is_err() {
+        return op.fail("create_stage", "Invalid toolchain path".to_string());
+    }
+    let swift_bin = swift_bin.unwrap();
     let output = swift_bin.output(&["sdk", "remove", "darwin"]);
     if let Ok(output) = output {
         if !output.status.success() && output.status.code() != Some(1) {
@@ -197,22 +204,9 @@ async fn install_sdk_internal(
     )?;
     op.move_on("write_metadata", "install_sdk")?;
 
-    let path = PathBuf::from(toolchain_path);
-    let swift_path = path.join("usr").join("bin").join("swift");
-    if !swift_path.exists() || !swift_path.is_file() {
-        return op.fail(
-            "install_sdk",
-            "Swift binary not found in toolchain".to_string(),
-        );
-    }
-
     let output = op.fail_if_err_map(
         "install_sdk",
-        std::process::Command::new(swift_path)
-            .arg("sdk")
-            .arg("install")
-            .arg(output_dir.to_string_lossy().to_string())
-            .output(),
+        swift_bin.output(&["sdk", "install", &linux_path(&output_dir.to_string_lossy())]),
         |e| format!("Failed to execute swift command: {}", e),
     )?;
 
@@ -303,6 +297,18 @@ async fn install_developer(
         |e| format!("Failed to resolve unxip path: {}", e),
     )?;
 
+    #[cfg(target_os = "windows")]
+    let status = Command::new("wsl")
+        .arg("bash")
+        .arg("-c")
+        .arg(format!(
+            "{} {} {}",
+            windows_to_wsl_path(&unxip_path.to_string_lossy()),
+            windows_to_wsl_path(&xcode_path),
+            windows_to_wsl_path(&dev_stage.to_string_lossy())
+        ))
+        .output();
+    #[cfg(not(target_os = "windows"))]
     let status = Command::new(unxip_path)
         .current_dir(&dev_stage)
         .arg(xcode_path)

@@ -1,5 +1,5 @@
 #[cfg(target_os = "windows")]
-use crate::windows::{has_wsl, wsl_to_windows_path};
+use crate::windows::{has_wsl, wsl_to_windows_path, windows_to_wsl_path};
 use std::process::{Command, Stdio};
 
 pub fn symlink(target: &str, link: &str) -> std::io::Result<()> {
@@ -66,7 +66,7 @@ pub fn linux_env(key: &str) -> Result<String, String> {
     }
 }
 
-pub fn linux_path(path: &str) -> String {
+pub fn windows_path(path: &str) -> String {
     #[cfg(target_os = "linux")]
     {
         return path.to_string();
@@ -77,5 +77,19 @@ pub fn linux_path(path: &str) -> String {
             return path.to_string();
         }
         return wsl_to_windows_path(path);
+    }
+}
+
+pub fn linux_path(path: &str) -> String {
+    #[cfg(target_os = "linux")]
+    {
+        return path.to_string();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if !has_wsl() {
+            return path.to_string();
+        }
+        return windows_to_wsl_path(path);
     }
 }
