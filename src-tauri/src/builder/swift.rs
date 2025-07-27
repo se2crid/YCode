@@ -1,6 +1,10 @@
+#[cfg(target_os = "windows")]
+use crate::windows::has_wsl;
 use crate::{
     builder::{
-        config::{BuildSettings, ProjectConfig}, crossplatform::linux_env, packer::pack
+        config::{BuildSettings, ProjectConfig},
+        crossplatform::{linux_env, linux_path},
+        packer::pack,
     },
     device::DeviceInfo,
     emit_error_and_return,
@@ -8,9 +12,9 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    io::{BufRead, BufReader},
+    io::{self, BufRead, BufReader},
     path::PathBuf,
-    process::{Command, Stdio},
+    process::{Command, Output, Stdio},
     thread,
 };
 use tauri::{Emitter, Window};
@@ -38,30 +42,102 @@ struct SwiftlyConfig {
     pub version: String,
 }
 
-pub fn swift_bin(toolchain_path: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(toolchain_path);
-    if !path.exists() || !path.is_dir() {
-        return Err("Invalid toolchain path".to_string());
+#[derive(Debug, Clone)]
+pub struct SwiftBin {
+    pub bin_path: String,
+}
+
+impl SwiftBin {
+    pub fn new(toolchain_path: &str) -> Result<Self, String> {
+        #[cfg(target_os = "windows")]
+        {
+            if !has_wsl() {
+                panic!("WSL is not available");
+            }
+            let output = Command::new("wsl")
+                .args([
+                    "bash",
+                    "-c",
+                    &format!("test -f \"{}/usr/bin/swift\"", toolchain_path),
+                ])
+                .output()
+                .map_err(|e| format!("Failed to execute command: {}", e))?;
+            if !output.status.success() {
+                return Err(format!(
+                    "Swift toolchain invalid: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+            }
+            let swift_path = &format!("{}/usr/bin/swift", toolchain_path);
+            Ok(SwiftBin {
+                bin_path: swift_path.clone(),
+            })
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let path = PathBuf::from(toolchain_path);
+
+            if !path.exists() || !path.is_dir() {
+                return Err("Invalid toolchain path".to_string());
+            }
+            let swift_path = path.join("usr").join("bin").join("swift");
+
+            if !swift_path.exists() || !swift_path.is_file() {
+                return Err("Swift binary not found in toolchain".to_string());
+            }
+            Ok(SwiftBin {
+                toolchain_path: swift_path.to_string_lossy().to_string(),
+            })
+        }
     }
-    let swift_path = path.join("usr").join("bin").join("swift");
-    if !swift_path.exists() || !swift_path.is_file() {
-        return Err("Swift binary not found in toolchain".to_string());
+
+    pub fn output(&self, args: &[&str]) -> io::Result<Output> {
+        #[cfg(target_os = "windows")]
+        {
+            if !has_wsl() {
+                return Err(io::Error::new(io::ErrorKind::Other, "WSL is not available"));
+            }
+            let mut cmd = Command::new("wsl");
+            cmd.args(["bash", "-l", "-c"])
+                .arg(format!("\"{}\" {}", self.bin_path, args.join(" ")))
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output()
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let mut cmd = Command::new(&self.toolchain_path);
+            cmd.args(args)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output()
+        }
     }
-    Ok(swift_path)
+
+    pub fn command(&self) -> Command {
+        #[cfg(target_os = "windows")]
+        {
+            let mut cmd = Command::new("wsl");
+            cmd.args(["bash", "-l", "-c"])
+                .arg(format!("\"{}\"", self.bin_path));
+            cmd
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Command::new(&self.toolchain_path)
+        }
+    }
 }
 
 #[tauri::command]
 pub fn has_darwin_sdk(toolchain_path: &str) -> bool {
-    let swift_bin = swift_bin(toolchain_path);
+    let swift_bin = SwiftBin::new(toolchain_path);
     if swift_bin.is_err() {
         return false;
     }
     let swift_bin = swift_bin.unwrap();
 
-    let output = std::process::Command::new(swift_bin)
-        .arg("sdk")
-        .arg("list")
-        .output();
+    let output = swift_bin.output(&["sdk", "list"]);
     if output.is_err() {
         return false;
     }
@@ -76,15 +152,13 @@ pub fn has_darwin_sdk(toolchain_path: &str) -> bool {
 
 #[tauri::command]
 pub fn validate_toolchain(toolchain_path: &str) -> bool {
-    let swift_path = swift_bin(toolchain_path);
+    let swift_path = SwiftBin::new(toolchain_path);
     if swift_path.is_err() {
         return false;
     }
     let swift_path = swift_path.unwrap();
 
-    let output = std::process::Command::new(swift_path)
-        .arg("--version")
-        .output();
+    let output = swift_path.output(&["--version"]);
     if output.is_err() {
         return false;
     }
@@ -104,12 +178,11 @@ pub async fn get_toolchain_info(
     if !validate_toolchain(&toolchain_path) {
         return Err("Invalid toolchain path".to_string());
     }
-    let swift_path = swift_bin(&toolchain_path)?;
+    let swift_path = SwiftBin::new(&toolchain_path)?;
 
-    let output = std::process::Command::new(swift_path)
-        .arg("--version")
-        .output()
-        .map_err(|e| format!("Failed to execute swift command: {}", e))?;
+    let output = swift_path
+        .output(&["--version"])
+        .map_err(|e| format!("Failed to run swift command: {}", e))?;
     let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let version = version
         .split_whitespace()
@@ -132,13 +205,29 @@ pub async fn get_swiftly_toolchains() -> Result<ToolchainResult, String> {
             .installed_toolchains
             .iter()
             .map(|version| {
-                let path = PathBuf::from(swiftly_home_dir.as_ref().unwrap())
-                    .join("toolchains")
-                    .join(version);
-                Toolchain {
-                    version: version.clone(),
-                    path: path.to_string_lossy().to_string(),
-                    is_swiftly: true,
+                #[cfg(target_os = "windows")]
+                {
+                    let path = format!(
+                        "{}/toolchains/{}",
+                        swiftly_home_dir.as_ref().unwrap(),
+                        version
+                    );
+                    Toolchain {
+                        version: version.clone(),
+                        path,
+                        is_swiftly: true,
+                    }
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let path = PathBuf::from(swiftly_home_dir.as_ref().unwrap())
+                        .join("toolchains")
+                        .join(version);
+                    Toolchain {
+                        version: version.clone(),
+                        path: path.to_string_lossy().to_string(),
+                        is_swiftly: true,
+                    }
                 }
             })
             .collect();
@@ -166,8 +255,10 @@ pub async fn get_swiftly_toolchains() -> Result<ToolchainResult, String> {
 
 fn get_swiftly_config() -> Result<SwiftlyConfig, String> {
     let swiftly_home_dir = get_swiftly_path().ok_or("Swiftly home directory not found")?;
+    let swiftly_home_dir = linux_path(&swiftly_home_dir);
 
     let config_path = format!("{}/config.json", swiftly_home_dir);
+
     let content = std::fs::read_to_string(&config_path)
         .map_err(|_| "Failed to read config file".to_string())?;
 
@@ -208,8 +299,8 @@ async fn build_swift_internal(
             return emit_error_and_return(&window, &format!("Failed to load project config: {}", e))
         }
     };
-    let swift_bin = swift_bin(&toolchain_path)?;
-    let mut cmd = Command::new(swift_bin);
+    let swift_bin = SwiftBin::new(&toolchain_path)?;
+    let mut cmd = swift_bin.command();
     cmd.arg("build")
         .arg("-c")
         .arg(if build_settings.debug {
@@ -258,8 +349,8 @@ pub async fn clean_swift(
     folder: String,
     toolchain_path: String,
 ) -> Result<(), String> {
-    let swift_bin = swift_bin(&toolchain_path)?;
-    let mut cmd = Command::new(swift_bin);
+    let swift_bin = SwiftBin::new(&toolchain_path)?;
+    let mut cmd = swift_bin.command();
     cmd.arg("package").arg("clean").current_dir(folder);
 
     window

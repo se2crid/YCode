@@ -2,7 +2,7 @@ use std::{path::PathBuf, process::Command};
 
 use serde::{Deserialize, Serialize};
 
-use crate::builder::swift::swift_bin;
+use crate::builder::swift::SwiftBin;
 
 pub const FORMAT_VERSION: u32 = 1;
 
@@ -48,8 +48,8 @@ struct SwiftPackageTarget {
 impl ProjectConfig {
     pub fn load(project_path: PathBuf, toolchain_path: &str) -> Result<Self, String> {
         let toml_config = TomlConfig::load_or_default(project_path.clone())?;
-        let swift = swift_bin(toolchain_path)?;
-        let raw_package = Command::new(swift)
+        let swift = SwiftBin::new(toolchain_path)?;
+        let raw_package = swift.command()
             .arg("package")
             .arg("dump-package")
             .current_dir(&project_path)

@@ -2,6 +2,10 @@ use std::process::{Command, Stdio};
 use wslpath2::{convert, Conversion};
 
 pub fn windows_to_wsl_path(path: &str) -> String {
+    convert(path, None, Conversion::WindowsToWsl, false).unwrap()
+}
+
+pub fn wsl_to_windows_path(path: &str) -> String {
     convert(path, None, Conversion::WslToWindows, false).unwrap()
 }
 

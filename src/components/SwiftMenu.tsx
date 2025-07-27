@@ -31,6 +31,7 @@ export default () => {
     }
     return all;
   }, [selectedToolchain, toolchains]);
+  
   return (
     <div
       style={{
@@ -58,16 +59,15 @@ export default () => {
       {isWindowsReady && toolchains !== null && allToolchains.length === 0 && (
         <Typography
           level="body-md"
-          style={{ marginBottom: "var(--padding-md)" }}
           color="warning"
         >
-          No Swift toolchains found. You can install one using "
+          No Swift toolchains found. You can get one by installing swiftly{isWindows && " in WSL"} and running "
           <span
             style={{
               fontFamily: "monospace",
             }}
           >
-            swiftly install latest
+            swiftly install 6.0
           </span>
           " or manually.
         </Typography>

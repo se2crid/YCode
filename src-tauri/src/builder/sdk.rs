@@ -7,7 +7,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager, Window};
 
-use crate::builder::swift::{swift_bin, validate_toolchain};
+use crate::builder::swift::{SwiftBin, validate_toolchain};
 use crate::builder::crossplatform::symlink;
 use crate::operation::Operation;
 
@@ -72,12 +72,8 @@ async fn install_sdk_internal(
         return op.fail("create_stage", "Invalid toolchain path".to_string());
     }
 
-    let swift_bin = swift_bin(&toolchain_path)?;
-    let output = std::process::Command::new(swift_bin)
-        .arg("sdk")
-        .arg("remove")
-        .arg("darwin")
-        .output();
+    let swift_bin = SwiftBin::new(&toolchain_path)?;
+    let output = swift_bin.output(&["sdk", "remove", "darwin"]);
     if let Ok(output) = output {
         if !output.status.success() && output.status.code() != Some(1) {
             return op.fail(
