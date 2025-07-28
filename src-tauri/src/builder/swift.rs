@@ -86,7 +86,7 @@ impl SwiftBin {
                 return Err("Swift binary not found in toolchain".to_string());
             }
             Ok(SwiftBin {
-                toolchain_path: swift_path.to_string_lossy().to_string(),
+                bin_path: swift_path.to_string_lossy().to_string(),
             })
         }
     }
@@ -106,7 +106,7 @@ impl SwiftBin {
         }
         #[cfg(not(target_os = "windows"))]
         {
-            let mut cmd = Command::new(&self.toolchain_path);
+            let mut cmd = Command::new(&self.bin_path);
             cmd.args(args)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -124,7 +124,7 @@ impl SwiftBin {
         }
         #[cfg(not(target_os = "windows"))]
         {
-            Command::new(&self.toolchain_path)
+            Command::new(&self.bin_path)
         }
     }
 }
