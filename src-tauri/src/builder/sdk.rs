@@ -8,7 +8,7 @@ use std::process::Command;
 use tauri::{AppHandle, Manager, Window};
 
 use crate::builder::swift::{SwiftBin, validate_toolchain};
-use crate::builder::crossplatform::{linux_path, symlink};
+use crate::builder::crossplatform::{linux_path, symlink, linux_temp_dir, read_link};
 use crate::operation::Operation;
 
 #[cfg(target_os = "windows")]
@@ -24,7 +24,8 @@ pub async fn install_sdk_operation(
     toolchain_path: String,
 ) -> Result<(), String> {
     let op = Operation::new("install_sdk".to_string(), &window);
-    let work_dir = std::env::temp_dir().join("DarwinSDKBuild");
+    op.start("create_stage")?;
+    let work_dir = op.fail_if_err("create_stage", linux_temp_dir())?.join("DarwinSDKBuild");
     let res = install_sdk_internal(app, xcode_path, toolchain_path, work_dir.clone(), &op).await;
     op.start("cleanup")?;
     let cleanup_result = if work_dir.exists() {
@@ -64,7 +65,6 @@ async fn install_sdk_internal(
     work_dir: PathBuf,
     op: &Operation<'_>,
 ) -> Result<(), String> {
-    op.start("create_stage")?;
     if xcode_path.is_empty() || !xcode_path.ends_with(".xip") {
         return op.fail("create_stage", "Xcode not found".to_string());
     }
@@ -437,8 +437,7 @@ fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
             .map_err(|e| format!("Failed to get metadata: {}", e))?;
 
         if metadata.file_type().is_symlink() {
-            let target =
-                fs::read_link(&src_path).map_err(|e| format!("Failed to read symlink: {}", e))?;
+            let target = read_link(&src_path)?;
             if let Some(parent) = dst_path.parent() {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dir: {}", e))?;

@@ -1,6 +1,6 @@
 #[cfg(target_os = "windows")]
 use crate::windows::{has_wsl, wsl_to_windows_path, windows_to_wsl_path};
-use std::process::{Command, Stdio};
+use std::{fs, path::PathBuf, process::{Command, Stdio}};
 
 pub fn symlink(target: &str, link: &str) -> std::io::Result<()> {
     #[cfg(not(target_os = "windows"))]
@@ -32,6 +32,34 @@ pub fn symlink(target: &str, link: &str) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+pub fn read_link(path: &PathBuf) -> Result<PathBuf, String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        return fs::read_link(path).map_err(|e| format!("Failed to read symlink: {}", e));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if !has_wsl() {
+            return Err("WSL is not available".to_string());
+        }
+        let output = Command::new("wsl")
+            .arg("readlink")
+            .arg(path.to_str().unwrap())
+            .output()
+            .expect("failed to execute process");
+        if output.status.success() {
+            let res = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            Ok(PathBuf::from(res))
+        } else {
+            Err(format!(
+                "Failed to read symlink '{}': {}",
+                path.display(),
+                String::from_utf8_lossy(&output.stderr)
+            ))
+        }
+    }
 }
 
 pub fn linux_env(key: &str) -> Result<String, String> {
@@ -67,7 +95,7 @@ pub fn linux_env(key: &str) -> Result<String, String> {
 }
 
 pub fn windows_path(path: &str) -> String {
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_os = "windows"))]
     {
         return path.to_string();
     }
@@ -81,7 +109,7 @@ pub fn windows_path(path: &str) -> String {
 }
 
 pub fn linux_path(path: &str) -> String {
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_os = "windows"))]
     {
         return path.to_string();
     }
@@ -91,5 +119,19 @@ pub fn linux_path(path: &str) -> String {
             return path.to_string();
         }
         return windows_to_wsl_path(path);
+    }
+}
+
+pub fn linux_temp_dir() -> Result<PathBuf, String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Ok(std::env::temp_dir());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if !has_wsl() {
+            return Err("WSL is not available".to_string());
+        }
+        Ok(PathBuf::from(wsl_to_windows_path("/tmp")))
     }
 }

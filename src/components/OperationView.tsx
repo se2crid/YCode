@@ -23,7 +23,7 @@ export default ({
   const operation = operationState.current;
   const opFailed = operationState.failed.length > 0;
   const done =
-    opFailed || operationState.completed.length == operation.steps.length;
+    (opFailed && operationState.started.length == (operationState.completed.length + operationState.failed.length)) || operationState.completed.length == operation.steps.length;
 
   return (
     <Modal
