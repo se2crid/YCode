@@ -12,14 +12,14 @@ import SDKMenu from "../components/SDKMenu";
 export interface OnboardingProps {}
 
 export default ({}: OnboardingProps) => {
-  const { selectedToolchain, toolchains, hasWSL, isWindows, openFolderDialog } =
+  const { selectedToolchain, toolchains, hasWSL, isWindows, openFolderDialog, hasDarwinSDK } =
     useIDE();
   const [ready, setReady] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (toolchains !== null && isWindows !== null && hasWSL !== null) {
-      setReady(selectedToolchain !== null && (isWindows ? hasWSL : true));
+      setReady(selectedToolchain !== null && (isWindows ? hasWSL : true) && hasDarwinSDK);
     } else {
       setReady(false);
     }

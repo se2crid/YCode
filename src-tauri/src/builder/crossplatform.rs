@@ -19,7 +19,7 @@ pub fn symlink(target: &str, link: &str) -> std::io::Result<()> {
             .arg("ln")
             .arg("-s")
             .arg(target)
-            .arg(link)
+            .arg(windows_to_wsl_path(link))
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
@@ -46,7 +46,7 @@ pub fn read_link(path: &PathBuf) -> Result<PathBuf, String> {
         }
         let output = Command::new("wsl")
             .arg("readlink")
-            .arg(path.to_str().unwrap())
+            .arg(windows_to_wsl_path(&path.to_string_lossy().to_string()))
             .output()
             .expect("failed to execute process");
         if output.status.success() {
@@ -133,5 +133,29 @@ pub fn linux_temp_dir() -> Result<PathBuf, String> {
             return Err("WSL is not available".to_string());
         }
         Ok(PathBuf::from(wsl_to_windows_path("/tmp")))
+    }
+}
+
+pub fn remove_dir_all(path: &PathBuf) -> Result<(), String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        return fs::remove_dir_all(path).map_err(|e| e.to_string());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if !has_wsl() {
+            return Err("WSL is not available".to_string());
+        }
+        let output = Command::new("wsl")
+            .arg("rm")
+            .arg("-rf")
+            .arg(windows_to_wsl_path(&path.to_string_lossy().to_string()))
+            .output()
+            .expect("failed to execute process");
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+        }
     }
 }

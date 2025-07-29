@@ -8,7 +8,7 @@ use std::process::Command;
 use tauri::{AppHandle, Manager, Window};
 
 use crate::builder::swift::{SwiftBin, validate_toolchain};
-use crate::builder::crossplatform::{linux_path, symlink, linux_temp_dir, read_link};
+use crate::builder::crossplatform::{linux_path, linux_temp_dir, read_link, remove_dir_all, symlink};
 use crate::operation::Operation;
 
 #[cfg(target_os = "windows")]
@@ -29,7 +29,7 @@ pub async fn install_sdk_operation(
     let res = install_sdk_internal(app, xcode_path, toolchain_path, work_dir.clone(), &op).await;
     op.start("cleanup")?;
     let cleanup_result = if work_dir.exists() {
-        fs::remove_dir_all(&work_dir)
+        remove_dir_all(&work_dir)
     } else {
         Ok(())
     };
@@ -95,7 +95,7 @@ async fn install_sdk_internal(
 
     let output_dir = work_dir.join("darwin.artifactbundle");
     if output_dir.exists() {
-        op.fail_if_err_map("create_stage", fs::remove_dir_all(&output_dir), |e| {
+        op.fail_if_err_map("create_stage", remove_dir_all(&output_dir), |e| {
             format!("Failed to remove existing output directory: {}", e)
         })?;
     }
@@ -352,7 +352,7 @@ async fn install_developer(
         format!("Failed to create Developer directory: {}", e)
     })?;
 
-    let contents_developer = app_path.join("Contents/Developer");
+    let contents_developer = app_path.join("Contents").join("Developer");
     if !contents_developer.exists() {
         return op.fail(
             "copy_files",
@@ -364,7 +364,7 @@ async fn install_developer(
         "copy_files",
         copy_developer(&contents_developer, &dev, Path::new("Contents/Developer")),
     )?;
-    op.fail_if_err_map("copy_files", fs::remove_dir_all(&dev_stage), |e| {
+    op.fail_if_err_map("copy_files", remove_dir_all(&dev_stage), |e| {
         format!("Failed to remove DeveloperStage directory: {}", e)
     })?;
 
@@ -452,7 +452,8 @@ fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dir: {}", e))?;
             }
-            fs::copy(&src_path, &dst_path).map_err(|e| format!("Failed to copy file: {}", e))?;
+            fs::copy(&src_path, &dst_path)
+                .map_err(|e| format!("Failed to copy file: {}", e))?;
         }
     }
     Ok(())
