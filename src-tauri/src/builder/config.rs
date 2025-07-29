@@ -61,6 +61,7 @@ impl ProjectConfig {
                 String::from_utf8_lossy(&raw_package.stderr)
             ));
         }
+        
         let package: SwiftPackageDump = serde_json::from_slice(&raw_package.stdout)
             .map_err(|e| format!("Failed to parse package dump: {}", e))?;
 

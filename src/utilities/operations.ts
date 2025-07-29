@@ -50,7 +50,7 @@ export const installSdkOperation: Operation = {
     },
     {
       id: "copy_files",
-      title: "Copy Files",
+      title: "Move Files",
     },
     {
       id: "write_metadata",

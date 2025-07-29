@@ -113,43 +113,39 @@ async fn install_sdk_internal(
     let mac_os_sdk = sdk(&dev, "MacOSX")?;
     let iphone_simulator_sdk = sdk(&dev, "iPhoneSimulator")?;
 
-    let info = "
-        {
-            \"schemaVersion\": \"1.0\",
-            \"artifacts\": {
-                \"darwin\": {
-                    \"type\": \"swiftSDK\",
-                    \"version\": \"0.0.1\",
-                    \"variants\": [
-                        {
-                            \"path\": \".\",
-                            \"supportedTriples\": [\"aarch64-unknown-linux-gnu\", \"x86_64-unknown-linux-gnu\"]
-                        }
-                    ]
+    let info = "{
+    \"schemaVersion\": \"1.0\",
+    \"artifacts\": {
+        \"darwin\": {
+            \"type\": \"swiftSDK\",
+            \"version\": \"0.0.1\",
+            \"variants\": [
+                {
+                    \"path\": \".\",
+                    \"supportedTriples\": [\"aarch64-unknown-linux-gnu\", \"x86_64-unknown-linux-gnu\"]
                 }
-            }
+            ]
         }
-        ";
+    }
+}";
     op.fail_if_err_map(
         "write_metadata",
         fs::write(output_dir.join("info.json"), info),
         |e| format!("Failed to write info.json: {}", e),
     )?;
 
-    let toolset = "
-        {
-            \"schemaVersion\": \"1.0\",
-            \"rootPath\": \"toolset/bin\",
-            \"linker\": {
-                \"path\": \"ld64.lld\"
-            },
-            \"swiftCompiler\": {
-                \"extraCLIOptions\": [
-                    \"-use-ld=lld\"
-                ]
-            }
-        }
-        ";
+    let toolset = "{
+    \"schemaVersion\": \"1.0\",
+    \"rootPath\": \"toolset/bin\",
+    \"linker\": {
+        \"path\": \"ld64.lld\"
+    },
+    \"swiftCompiler\": {
+        \"extraCLIOptions\": [
+            \"-use-ld=lld\"
+        ]
+    }
+}";
     op.fail_if_err_map(
         "write_metadata",
         fs::write(output_dir.join("toolset.json"), toolset),
@@ -275,6 +271,25 @@ async fn install_toolset(output_path: &PathBuf) -> Result<(), String> {
     archive
         .unpack(&toolset_dir)
         .map_err(|e| format!("Failed to extract toolset: {}", e))?;
+    #[cfg(target_os = "windows")]
+    {
+        // I'm guessing this has to be done because I'm extracting the tar from windows into the wsl file system and windows doesn't play nice with permissions, but im too lazy to do this properly
+        let wsl_toolset_path = windows_to_wsl_path(&toolset_dir.join("bin").to_string_lossy().to_string());
+        let output = Command::new("wsl")
+            .arg("chmod")
+            .arg("+x")
+            .arg(format!("{}/*",
+                wsl_toolset_path
+            ))
+            .output()
+            .map_err(|e| format!("Failed to run chmod: {}", e))?;
+        if !output.status.success() {
+            return Err(format!(
+                "Failed to set executable permissions: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -452,7 +467,7 @@ fn copy_developer(src: &Path, dst: &Path, rel: &Path) -> Result<(), String> {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dir: {}", e))?;
             }
-            fs::copy(&src_path, &dst_path)
+            fs::rename(&src_path, &dst_path)
                 .map_err(|e| format!("Failed to copy file: {}", e))?;
         }
     }

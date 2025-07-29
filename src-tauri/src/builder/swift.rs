@@ -118,8 +118,8 @@ impl SwiftBin {
         #[cfg(target_os = "windows")]
         {
             let mut cmd = Command::new("wsl");
-            cmd.args(["bash", "-l", "-c"])
-                .arg(format!("\"{}\"", self.bin_path));
+            cmd
+                .arg(&self.bin_path);
             cmd
         }
         #[cfg(not(target_os = "windows"))]
