@@ -11,7 +11,7 @@ export default () => {
     scanToolchains,
     locateToolchain,
     isWindows,
-    hasWSL
+    hasWSL,
   } = useIDE();
 
   const isWindowsReady = !isWindows || hasWSL;
@@ -31,7 +31,7 @@ export default () => {
     }
     return all;
   }, [selectedToolchain, toolchains]);
-  
+
   return (
     <div
       style={{
@@ -48,26 +48,21 @@ export default () => {
           ? `Swiftly Detected: ${toolchains.swiftlyVersion}`
           : "YCode was unable to detect Swiftly."}
       </Typography>
-            {!isWindowsReady && toolchains !== null && allToolchains.length === 0 && (
-        <Typography
-          level="body-md"
-          color="danger"
-        >
+      {!isWindowsReady && toolchains !== null && allToolchains.length === 0 && (
+        <Typography level="body-md" color="danger">
           Install WSL before swift, as you need to install swift inside of WSL.
         </Typography>
       )}
       {isWindowsReady && toolchains !== null && allToolchains.length === 0 && (
-        <Typography
-          level="body-md"
-          color="warning"
-        >
-          No Swift toolchains found. You can get one by installing swiftly{isWindows && " in WSL"} and running "
+        <Typography level="body-md" color="warning">
+          No Swift toolchains found. You can get one by installing swiftly
+          {isWindows && " in WSL"} and running "
           <span
             style={{
               fontFamily: "monospace",
             }}
           >
-            swiftly install 6.0
+            swiftly install 6.1
           </span>
           " or manually.
         </Typography>
@@ -121,7 +116,11 @@ export default () => {
         }}
       >
         {
-          <Button variant="soft" onClick={locateToolchain} disabled={!isWindowsReady}>
+          <Button
+            variant="soft"
+            onClick={locateToolchain}
+            disabled={!isWindowsReady}
+          >
             Locate Existing Toolchain
           </Button>
         }
@@ -155,7 +154,7 @@ export default () => {
 
 function isCompatable(toolchain: Toolchain | null): boolean {
   if (!toolchain) return false;
-  return toolchain.version.startsWith("6.0");
+  return toolchain.version.startsWith("6.1");
 }
 
 function stringifyToolchain(toolchain: Toolchain | null): string | null {

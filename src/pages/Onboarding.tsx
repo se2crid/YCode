@@ -12,14 +12,24 @@ import SDKMenu from "../components/SDKMenu";
 export interface OnboardingProps {}
 
 export default ({}: OnboardingProps) => {
-  const { selectedToolchain, toolchains, hasWSL, isWindows, openFolderDialog, hasDarwinSDK } =
-    useIDE();
+  const {
+    selectedToolchain,
+    toolchains,
+    hasWSL,
+    isWindows,
+    openFolderDialog,
+    hasDarwinSDK,
+  } = useIDE();
   const [ready, setReady] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (toolchains !== null && isWindows !== null && hasWSL !== null) {
-      setReady(selectedToolchain !== null && (isWindows ? hasWSL : true) && hasDarwinSDK);
+      setReady(
+        selectedToolchain !== null &&
+          (isWindows ? hasWSL : true) &&
+          hasDarwinSDK
+      );
     } else {
       setReady(false);
     }
@@ -81,7 +91,7 @@ export default ({}: OnboardingProps) => {
       <div className="onboarding-cards">
         {isWindows && (
           <Card variant="soft">
-            <Typography level="h3">WSL</Typography>
+            <Typography level="h3">Windows Subsystem for Linux</Typography>
             <Typography level="body-sm">
               Windows Subsystem for Linux (WSL) is required to use YCode on
               Windows. Learn more about WSL on{" "}
@@ -94,7 +104,9 @@ export default ({}: OnboardingProps) => {
               >
                 microsoft.com
               </Link>
-              .
+              . We recommended installing WSL 2 and Ubuntu. Other distributions
+              may work, but are not officially supported. YCode will use your
+              default WSL distribution.
             </Typography>
             <Divider />
             <CardContent>
@@ -128,7 +140,7 @@ export default ({}: OnboardingProps) => {
         <Card variant="soft">
           <Typography level="h3">Swift</Typography>
           <Typography level="body-sm">
-            You will need a Swift 6.0 toolchain to use YCode. It is recommended
+            You will need a Swift 6.1 toolchain to use YCode. It is recommended
             to install it using swiftly, but you can also install it manually.
           </Typography>
           <Divider />

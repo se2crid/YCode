@@ -7,8 +7,14 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { installSdkOperation } from "../utilities/operations";
 
 export default () => {
-  const { selectedToolchain, hasDarwinSDK, checkSDK, startOperation, isWindows, hasWSL } =
-    useIDE();
+  const {
+    selectedToolchain,
+    hasDarwinSDK,
+    checkSDK,
+    startOperation,
+    isWindows,
+    hasWSL,
+  } = useIDE();
   const { addToast } = useToast();
 
   const isWindowsReady = !isWindows || hasWSL;
@@ -54,9 +60,11 @@ export default () => {
       }}
     >
       <Typography level="body-md" color={hasDarwinSDK ? "success" : "danger"}>
-        {isWindowsReady ? (hasDarwinSDK
-          ? "Darwin SDK is installed!"
-          : "Darwin SDK is not installed.") : "Install WSL and Swift first."}
+        {isWindowsReady
+          ? hasDarwinSDK
+            ? "Darwin SDK is installed!"
+            : "Darwin SDK is not installed."
+          : "Install WSL and Swift first."}
       </Typography>
       <div
         style={{
@@ -73,7 +81,7 @@ export default () => {
             );
           }}
         >
-          Download XCode
+          Download XCode 16.3
         </Button>
         <Button variant="soft" onClick={install} disabled={!selectedToolchain}>
           {hasDarwinSDK ? "Reinstall SDK" : "Install SDK"}
