@@ -191,8 +191,8 @@ impl AppleAccount {
     }
 
     pub async fn login(
-        appleid_closure: impl Fn() -> (String, String),
-        tfa_closure: impl Fn() -> String,
+        appleid_closure: impl Fn() -> Result<(String, String), String>,
+        tfa_closure: impl Fn() -> Result<String, String>,
         config: AnisetteConfiguration,
     ) -> Result<AppleAccount, Error> {
         let anisette = AnisetteData::new(config).await?;
@@ -364,23 +364,29 @@ impl AppleAccount {
     /// ```
     /// Note: You would not provide the 2FA code like this, you would have to actually ask input for it.
     //TODO: add login_with_anisette and login, where login autodetcts anisette
-    pub async fn login_with_anisette<F: Fn() -> (String, String), G: Fn() -> String>(
+    pub async fn login_with_anisette<F: Fn() -> Result<(String, String), String>, G: Fn() -> Result<String, String>>(
         appleid_closure: F,
         tfa_closure: G,
         anisette: AnisetteData,
     ) -> Result<AppleAccount, Error> {
         let mut _self = AppleAccount::new_with_anisette(anisette)?;
-        let (username, password) = appleid_closure();
+        let (username, password) = appleid_closure().map_err(|e| {
+            Error::AuthSrpWithMessage(0, format!("Failed to get Apple ID credentials: {}", e))
+        })?;
         let mut response = _self.login_email_pass(&username, &password).await?;
         loop {
             match response {
                 LoginState::NeedsDevice2FA => response = _self.send_2fa_to_devices().await?,
                 LoginState::Needs2FAVerification => {
-                    response = _self.verify_2fa(tfa_closure()).await?
+                    response = _self.verify_2fa(tfa_closure().map_err(|e| {
+                        Error::AuthSrpWithMessage(0, format!("Failed to get 2FA code: {}", e))
+                    })?).await?
                 }
                 LoginState::NeedsSMS2FA => response = _self.send_sms_2fa_to_devices(1).await?,
                 LoginState::NeedsSMS2FAVerification(body) => {
-                    response = _self.verify_sms_2fa(tfa_closure(), body).await?
+                    response = _self.verify_sms_2fa(tfa_closure().map_err(|e| {
+                        Error::AuthSrpWithMessage(0, format!("Failed to get SMS 2FA code: {}", e))
+                    })?, body).await?
                 }
                 LoginState::NeedsLogin => {
                     response = _self.login_email_pass(&username, &password).await?

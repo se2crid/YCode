@@ -83,7 +83,7 @@ pub async fn login(
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     let window_clone = window.clone();
 
-    let appleid_closure = move || -> (String, String) {
+    let appleid_closure = move || -> Result<(String, String), String> {
         if let Some((email, password)) = get_stored_credentials() {
             window_clone
                 .emit(
@@ -91,7 +91,7 @@ pub async fn login(
                     "Using stored Apple ID credentials".to_string(),
                 )
                 .ok();
-            return (email, password);
+            return Ok((email, password));
         }
 
         window_clone
@@ -143,26 +143,26 @@ pub async fn login(
                     }
                 }
 
-                (apple_id, password)
+                Ok((apple_id, password))
             }
             Ok(msg) if msg == "login-cancelled" => {
                 window_clone
                     .emit("build-output", "Login cancelled by user".to_string())
                     .ok();
-                panic!("Login cancelled by user");
+                Err("Login cancelled by user".to_string())
             }
             Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) | _ => {
                 window_clone
                     .emit("build-output", "Login cancelled or timed out".to_string())
                     .ok();
-                panic!("Login cancelled or timed out");
+                Err("Login cancelled or timed out".to_string())
             }
         }
     };
 
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     let window_clone = window.clone();
-    let tfa_closure = move || -> String {
+    let tfa_closure = move || -> Result<String, String> {
         window_clone
             .emit("2fa-required", ())
             .expect("Failed to emit 2fa-required event");
@@ -179,13 +179,13 @@ pub async fn login(
         match result {
             Ok(code) => {
                 let code = code.trim_matches('"').to_string();
-                code
+                Ok(code)
             }
             Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {
                 window_clone
                     .emit("build-output", "2FA cancelled or timed out".to_string())
                     .ok();
-                panic!("2FA cancelled or timed out");
+                Err("2FA cancelled or timed out".to_string())
             }
         }
     };
