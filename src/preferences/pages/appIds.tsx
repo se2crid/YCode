@@ -16,7 +16,7 @@ type AppId = {
   identifier: string;
   name: string;
   features: Record<string, any>;
-  expiration_date: Date;
+  expiration_date: Date | null;
 };
 
 type AppIdsResponse = {
@@ -120,11 +120,13 @@ const AppIdsComponent = () => {
                   {id.identifier}
                 </Typography>
               </div>
-              <div style={{ flexGrow: 1, textAlign: "right" }}>
-                <Typography level="body-sm">
-                  Expires {new Date(id.expiration_date).toLocaleDateString()}
-                </Typography>
-              </div>
+              {id.expiration_date && (
+                <div style={{ flexGrow: 1, textAlign: "right" }}>
+                  <Typography level="body-sm">
+                    Expires {new Date(id.expiration_date).toLocaleDateString()}
+                  </Typography>
+                </div>
+              )}
             </AccordionSummary>
             <AccordionDetails>
               <Typography level="body-md">Features:</Typography>

@@ -358,11 +358,15 @@ impl DeveloperSession {
                 .get("features")
                 .and_then(|v| v.as_dictionary())
                 .ok_or(Error::Parse)?;
-            // TODO: expirationDate may be missing (probably used for paid dev accounts)
-            let expiration_date = dict
-                .get("expirationDate")
-                .and_then(|v| v.as_date())
-                .ok_or(Error::Parse)?;
+            let expiration_date = if dict.contains_key("expirationDate") {
+                Some(
+                    dict.get("expirationDate")
+                        .and_then(|v| v.as_date())
+                        .ok_or(Error::Parse)?,
+                )
+            } else {
+                None
+            };
 
             result.push(AppId {
                 name,
@@ -670,7 +674,7 @@ pub struct AppId {
     pub identifier: String,
     pub name: String,
     pub features: Dictionary,
-    pub expiration_date: Date,
+    pub expiration_date: Option<Date>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
