@@ -14,17 +14,17 @@ use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 
 pub async fn sideload_app(
     handle: &tauri::AppHandle,
-    window: tauri::Window,
+    window: &tauri::Window,
     anisette_server: String,
     device: DeviceInfo,
     app_path: PathBuf,
 ) -> Result<(), String> {
     if device.uuid.is_empty() {
-        return emit_error_and_return(&window, "No device selected");
+        return emit_error_and_return(window, "No device selected");
     }
     let dev_session = match crate::sideloader::apple::get_developer_session(
         &handle,
-        &window,
+        window,
         anisette_server.clone(),
     )
     .await
@@ -32,7 +32,7 @@ pub async fn sideload_app(
         Ok(acc) => acc,
         Err(e) => {
             return emit_error_and_return(
-                &window,
+                window,
                 &format!("Failed to login to Apple account: {:?}", e),
             );
         }
@@ -40,19 +40,19 @@ pub async fn sideload_app(
     let team = match dev_session.get_team().await {
         Ok(t) => t,
         Err(e) => {
-            return emit_error_and_return(&window, &format!("Failed to get team: {:?}", e));
+            return emit_error_and_return(window, &format!("Failed to get team: {:?}", e));
         }
     };
     window
         .emit("build-output", "Successfully retrieved team".to_string())
         .ok();
-    ensure_device_registered(&dev_session, &window, &team, &device).await?;
+    ensure_device_registered(&dev_session, window, &team, &device).await?;
 
     let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
     let cert = match CertificateIdentity::new(config_dir, &dev_session, get_apple_email()).await {
         Ok(c) => c,
         Err(e) => {
-            return emit_error_and_return(&window, &format!("Failed to get certificate: {:?}", e));
+            return emit_error_and_return(window, &format!("Failed to get certificate: {:?}", e));
         }
     };
     window
@@ -67,7 +67,7 @@ pub async fn sideload_app(
     {
         Ok(ids) => ids,
         Err(e) => {
-            return emit_error_and_return(&window, &format!("Failed to list app IDs: {:?}", e));
+            return emit_error_and_return(window, &format!("Failed to list app IDs: {:?}", e));
         }
     };
 
@@ -76,14 +76,14 @@ pub async fn sideload_app(
     let main_app_bundle_id = match app.bundle.bundle_identifier() {
         Some(id) => id.to_string(),
         None => {
-            return emit_error_and_return(&window, "No bundle identifier found in IPA");
+            return emit_error_and_return(window, "No bundle identifier found in IPA");
         }
     };
     let main_app_id_str = format!("{}.{}", main_app_bundle_id, team.team_id);
     let main_app_name = match app.bundle.bundle_name() {
         Some(name) => name.to_string(),
         None => {
-            return emit_error_and_return(&window, "No bundle name found in IPA");
+            return emit_error_and_return(window, "No bundle name found in IPA");
         }
     };
 
@@ -93,7 +93,7 @@ pub async fn sideload_app(
         if let Some(id) = ext.bundle_identifier() {
             if !(id.starts_with(&main_app_bundle_id) && id.len() > main_app_bundle_id.len()) {
                 return emit_error_and_return(
-                    &window,
+                    window,
                     &format!(
                         "Extension {} is not part of the main app bundle identifier: {}",
                         ext.bundle_name().unwrap_or("Unknown"),
@@ -128,7 +128,7 @@ pub async fn sideload_app(
 
     if app_ids_to_register.len() > list_app_id_response.available_quantity.try_into().unwrap() {
         return emit_error_and_return(
-            &window,
+            window,
             &format!(
                 "This app requires {} app ids, but you only have {} available",
                 app_ids_to_register.len(),
@@ -144,7 +144,7 @@ pub async fn sideload_app(
             .add_app_id(DeveloperDeviceType::Ios, &team, &name, &id)
             .await
         {
-            return emit_error_and_return(&window, &format!("Failed to register app ID: {:?}", e));
+            return emit_error_and_return(window, &format!("Failed to register app ID: {:?}", e));
         }
     }
     list_app_id_response = match dev_session
@@ -153,7 +153,7 @@ pub async fn sideload_app(
     {
         Ok(ids) => ids,
         Err(e) => {
-            return emit_error_and_return(&window, &format!("Failed to list app IDs: {:?}", e));
+            return emit_error_and_return(window, &format!("Failed to list app IDs: {:?}", e));
         }
     };
 
@@ -174,7 +174,7 @@ pub async fn sideload_app(
         Some(id) => id,
         None => {
             return emit_error_and_return(
-                &window,
+                window,
                 &format!(
                     "Main app ID {} not found in registered app IDs",
                     main_app_id_str
@@ -205,7 +205,7 @@ pub async fn sideload_app(
                 Ok(new_feats) => new_feats,
                 Err(e) => {
                     return emit_error_and_return(
-                        &window,
+                        window,
                         &format!("Failed to update app ID features: {:?}", e),
                     );
                 }
@@ -229,7 +229,7 @@ pub async fn sideload_app(
     {
         Ok(groups) => groups,
         Err(e) => {
-            return emit_error_and_return(&window, &format!("Failed to list app groups: {:?}", e));
+            return emit_error_and_return(window, &format!("Failed to list app groups: {:?}", e));
         }
     };
 
@@ -251,7 +251,7 @@ pub async fn sideload_app(
             Ok(group) => group,
             Err(e) => {
                 return emit_error_and_return(
-                    &window,
+                    window,
                     &format!("Failed to register app group: {:?}", e),
                 );
             }
@@ -272,7 +272,7 @@ pub async fn sideload_app(
             .await;
         if assign_res.is_err() {
             return emit_error_and_return(
-                &window,
+                window,
                 &format!(
                     "Failed to assign app group to app ID: {:?}",
                     assign_res.err()
@@ -306,7 +306,7 @@ pub async fn sideload_app(
         Ok(pp /* tee hee */) => pp,
         Err(e) => {
             return emit_error_and_return(
-                &window,
+                window,
                 &format!("Failed to download provisioning profile: {:?}", e),
             );
         }

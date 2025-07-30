@@ -4,7 +4,7 @@ use crate::{
     builder::{
         config::{BuildSettings, ProjectConfig},
         crossplatform::{linux_env, windows_path},
-        packer::pack,
+        packer::{pack, zip_ipa},
     },
     device::DeviceInfo,
     emit_error_and_return,
@@ -12,6 +12,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    fs::File,
     io::{self, BufRead, BufReader},
     path::PathBuf,
     process::{Command, Output, Stdio},
@@ -118,8 +119,7 @@ impl SwiftBin {
         #[cfg(target_os = "windows")]
         {
             let mut cmd = Command::new("wsl");
-            cmd
-                .arg(&self.bin_path);
+            cmd.arg(&self.bin_path);
             cmd
         }
         #[cfg(not(target_os = "windows"))]
@@ -292,7 +292,7 @@ async fn build_swift_internal(
     toolchain_path: &str,
     build_settings: BuildSettings,
     emit_exit_code: bool,
-) -> Result<PathBuf, String> {
+) -> Result<(PathBuf, ProjectConfig), String> {
     let config = match ProjectConfig::load(PathBuf::from(&folder), &toolchain_path) {
         Ok(config) => config,
         Err(e) => {
@@ -319,7 +319,7 @@ async fn build_swift_internal(
             window
                 .emit("build-output", "Pack Success")
                 .expect("failed to send output");
-            Ok(app)
+            Ok((app, config))
         }
         Err(e) => emit_error_and_return(&window, &format!("Failed to pack app: {}", e)),
     }
@@ -334,13 +334,29 @@ pub async fn build_swift(
 ) -> Result<(), String> {
     let build_settings = BuildSettings { debug };
     if !validate_toolchain(&toolchain_path) {
-        return Err("Invalid toolchain path".to_string());
+        return emit_error_and_return(&window, "Invalid Toolchain");
     }
 
-    let path =
+    let (app, config) =
         build_swift_internal(&window, &folder, &toolchain_path, build_settings, true).await?;
 
-    todo!("Zip into .ipa");
+    let ipa_path = zip_ipa(app, &config);
+    if ipa_path.is_err() {
+        return emit_error_and_return(
+            &window,
+            &format!("Failed to zip IPA: {}", ipa_path.err().unwrap()),
+        );
+    }
+    let ipa_path = ipa_path.unwrap();
+
+    window
+        .emit(
+            "build-output",
+            format!("Build Success, output file at {}", ipa_path.display()),
+        )
+        .expect("failed to send output");
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -372,15 +388,21 @@ pub async fn deploy_swift(
 ) -> Result<(), String> {
     let build_settings = BuildSettings { debug };
     if !validate_toolchain(&toolchain_path) {
-        return Err("Invalid toolchain path".to_string());
+        return emit_error_and_return(&window, "Invalid Toolchain");
     }
 
-    let app =
+    let (app, config) =
         build_swift_internal(&window, &folder, &toolchain_path, build_settings, false).await?;
 
-    sideload_app(&handle, window, anisette_server, device, app)
+    sideload_app(&handle, &window, anisette_server, device, app)
         .await
-        .map_err(|e| format!("Failed to sideload app: {}", e))
+        .map_err(|e| format!("Failed to sideload app: {}", e))?;
+
+    window
+        .emit("build-output", "Build & Install Success")
+        .expect("failed to send output");
+
+    Ok(())
 }
 
 pub async fn pipe_command(
