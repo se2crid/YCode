@@ -14,7 +14,7 @@ You can download the latest build from [actions](https://github.com/nab138/YCode
 
 ## How it works
 
-- A darwin SDK is generated from a user provided copy of Xcode 16.3 and darwin tools from [darwin-tools-linux-llvm](https://github.com/xtool-org/darwin-tools-linux-llvm)
+- A darwin SDK is generated from a user provided copy of Xcode 16.3 (extracted with [unxip](https://github.com/saagarjha/unxip)) and darwin tools from [darwin-tools-linux-llvm](https://github.com/xtool-org/darwin-tools-linux-llvm)
 - Swift uses the darwin SDK to build an executable which is packaged into an .app bundle.
 - [apple-private-apis](https://github.com/SideStore/apple-private-apis) is used to login to the Apple Account. Heavy additions have been made to support actually accessing the Developer APIs
 - [ZSign](https://github.com/zhlynn/zsign) is used to sign the IPA with the certificate and provisioning profile acquired from the Apple Account
@@ -33,5 +33,5 @@ The app is currently functional but does not have all the features it should. Yo
 
 ### AI Usage
 
-- Generated the logo
+- Generated the logo (I'm sorry, its only temporary I promise)
 - Helped port small sections of code from [Sideloader](https://github.com/Dadoum/Sideloader) because I'm not familiar with dlang syntax

@@ -1,10 +1,9 @@
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import Menu from "@mui/joy/Menu";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
 import { useCallback, useEffect, useRef, useState } from "react";
 import MenuBarButton from "./MenuBarButton";
-import MenuGroup, { MenuBarData } from "./MenuGroup";
+import MenuGroup from "./MenuGroup";
 import { Shortcut, acceleratorPresssed } from "../../utilities/Shortcut";
 import CommandButton from "../CommandButton";
 import {
@@ -14,165 +13,11 @@ import {
   CleaningServices,
 } from "@mui/icons-material";
 import { useParams } from "react-router-dom";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { Divider, Option, Select } from "@mui/joy";
 import { DeviceInfo, useIDE } from "../../utilities/IDEContext";
 import { useStore } from "../../utilities/StoreContext";
 import { useToast } from "react-toast-plus";
-
-const bar = [
-  {
-    label: "File",
-    items: [
-      {
-        label: "New",
-        items: [
-          {
-            name: "New File...",
-            shortcut: "Ctrl+N",
-            callback: () => {
-              console.log("New File!");
-            },
-          },
-          {
-            name: "New Project...",
-            callbackName: "newProject",
-          },
-        ],
-      },
-      {
-        label: "Open",
-        items: [
-          {
-            name: "Open File...",
-            shortcut: "Ctrl+O",
-            callback: () => {
-              console.log("Open File!");
-            },
-          },
-          {
-            name: "Open Folder...",
-            callbackName: "openFolderDialog",
-          },
-        ],
-      },
-      {
-        label: "Save",
-        items: [
-          {
-            name: "Save",
-            shortcut: "Ctrl+S",
-            callbackName: "save",
-          },
-          {
-            name: "Save As...",
-            shortcut: "Ctrl+Shift+S",
-            callback: () => {
-              console.log("Save As!");
-            },
-          },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Edit",
-    items: [
-      {
-        label: "Timeline",
-        items: [
-          {
-            name: "Undo",
-            shortcut: "Ctrl+Z",
-            callback: () => {
-              console.log("Undo!");
-            },
-          },
-          {
-            name: "Redo",
-            shortcut: "Ctrl+Shift+Z",
-            callback: () => {
-              console.log("Redo!");
-            },
-          },
-        ],
-      },
-      {
-        label: "Settings",
-        items: [
-          {
-            name: "Preferences...",
-            callback: async () => {
-              let prefsWindow = await WebviewWindow.getByLabel("prefs");
-              if (prefsWindow) {
-                prefsWindow.show();
-                prefsWindow.center();
-                prefsWindow.setFocus();
-                return;
-              }
-
-              const appWindow = new WebviewWindow("prefs", {
-                title: "Preferences",
-                resizable: false,
-                width: 800,
-                height: 600,
-                url: "/preferences/general",
-              });
-              appWindow.once("tauri://created", function () {
-                appWindow.center();
-              });
-              appWindow.once("tauri://error", function (e) {
-                console.error("Error creating window:", e);
-              });
-            },
-          },
-        ],
-      },
-    ],
-  },
-  {
-    label: "View",
-    items: [
-      {
-        label: "Navigation",
-        items: [
-          {
-            name: "Show Welcome Page",
-            callbackName: "welcomePage",
-          },
-        ],
-      },
-      {
-        label: "Debug",
-        items: [
-          {
-            name: "Reload Window",
-            callback: async () => {
-              window.location.reload();
-            },
-            shortcut: "Ctrl+R",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Help",
-    items: [
-      {
-        label: "About YCode",
-        items: [
-          {
-            name: "View Github",
-            callback: () => {
-              openUrl("https://github.com/nab138/YCode");
-            },
-          },
-        ],
-      },
-    ],
-  },
-] as MenuBarData;
+import bar from "./MenuBarDefinition";
 
 export interface MenuBarProps {
   callbacks: Record<string, () => void>;
@@ -199,10 +44,33 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
           if (item.shortcut) {
             const shortcut = Shortcut.fromString(item.shortcut);
             let callback;
-            if (item.callbackName !== undefined) {
+            if (
+              "callbackName" in item &&
+              typeof item.callbackName === "string"
+            ) {
               callback = callbacks[item.callbackName];
+            } else if (
+              "callback" in item &&
+              typeof item.callback === "function"
+            ) {
+              callback = item.callback;
+            } else if (
+              "component" in item &&
+              "componentId" in item &&
+              typeof item.componentId === "string"
+            ) {
+              // This whole thing needs to be reworked because this is disgusting, too bad I'm lazy!
+              callback = () => {
+                const element = document.getElementById(
+                  item.componentId as string
+                );
+                console.log(element);
+                if (element) {
+                  (element as HTMLButtonElement).click();
+                }
+              };
             } else {
-              callback = item.callback ?? (() => {});
+              callback = () => {};
             }
             items.push({
               shortcut,
@@ -324,6 +192,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
               }}
               menu={
                 <Menu
+                  keepMounted
                   size="sm"
                   onClose={() => {
                     menus.current[index]?.focus();
@@ -333,6 +202,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
                     handleKeyDown={handleKeyDown}
                     resetMenuIndex={resetMenuIndex}
                     groups={menu.items}
+                    selectedDevice={selectedDevice}
                     callbacks={callbacks}
                   />
                 </Menu>
@@ -350,6 +220,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
           folder: path,
           toolchainPath: selectedToolchain?.path ?? "",
         }}
+        tooltip="Clean"
         sx={{ marginLeft: "auto", marginRight: 0 }}
       />
       <CommandButton
@@ -361,6 +232,7 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
           toolchainPath: selectedToolchain?.path ?? "",
           debug: true,
         }}
+        tooltip="Build .ipa"
         sx={{ marginRight: 0 }}
       />
       <Divider orientation="vertical" />
@@ -369,12 +241,14 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
           variant="plain"
           command="refresh_idevice"
           icon={<Refresh />}
+          tooltip="Refresh Devices"
           parameters={{}}
           sx={{ marginLeft: 0, marginRight: 0 }}
           clearConsole={false}
         />
         <Select
           size="sm"
+          title="Select Device"
           value={selectedDevice?.id.toString() ?? "none"}
           onChange={(_, value) => {
             setSelectedDevice(
@@ -395,6 +269,8 @@ export default function MenuBar({ callbacks }: MenuBarProps) {
           ))}
         </Select>
         <CommandButton
+          disabled={!selectedDevice}
+          tooltip="Build & Install"
           variant="plain"
           command="deploy_swift"
           icon={<PhonelinkSetup />}

@@ -1,4 +1,4 @@
-import { Button } from "@mui/joy";
+import { Button, MenuItem } from "@mui/joy";
 import { useCommandRunner } from "../utilities/Command";
 import { useIDE } from "../utilities/IDEContext";
 
@@ -6,11 +6,16 @@ export interface CommandButtonProps {
   command: string;
   parameters?: Record<string, unknown>;
   label?: string;
-  icon: React.ReactNode;
+  tooltip?: string;
+  icon?: React.ReactNode;
   variant?: "plain" | "outlined" | "soft" | "solid";
   sx?: React.CSSProperties;
   clearConsole?: boolean;
   validate?: () => boolean;
+  disabled?: boolean;
+  useMenuItem?: boolean;
+  shortcut?: React.ReactNode;
+  id?: string;
 }
 
 export default function CommandButton({
@@ -19,26 +24,39 @@ export default function CommandButton({
   label,
   icon,
   variant,
+  tooltip,
   sx = {},
   clearConsole = true,
   validate = () => true,
+  disabled = false,
+  useMenuItem = false,
+  shortcut,
+  id,
 }: CommandButtonProps) {
   const { isRunningCommand, currentCommand, runCommand, cancelCommand } =
     useCommandRunner();
   const { setConsoleLines } = useIDE();
 
+  const Component: React.ElementType = useMenuItem ? MenuItem : Button;
+
   return (
-    <Button
-      disabled={isRunningCommand && currentCommand !== command}
-      startDecorator={label == "" || label == undefined ? undefined : icon}
-      loading={isRunningCommand && currentCommand === command}
+    <Component
+      disabled={disabled || (isRunningCommand && currentCommand !== command)}
+      loading={
+        useMenuItem ? undefined : isRunningCommand && currentCommand === command
+      }
       variant={variant}
       size="md"
-      sx={{
-        marginRight: "var(--padding-md)",
-        padding: "0 var(--padding-md)",
-        ...sx,
-      }}
+      sx={
+        useMenuItem
+          ? {}
+          : {
+              marginRight: "var(--padding-md)",
+              padding: "0 var(--padding-md)",
+              ...sx,
+            }
+      }
+      title={tooltip}
       onClick={() => {
         if (!validate()) {
           return;
@@ -54,8 +72,11 @@ export default function CommandButton({
         }
         runCommand(command, parameters);
       }}
+      id={id}
     >
       {label == "" || label == undefined ? icon : label}
-    </Button>
+      {shortcut !== undefined && " "}
+      {shortcut}
+    </Component>
   );
 }
