@@ -326,6 +326,13 @@ pub async fn sideload_app(
     file.write_all(&provisioning_profile.encoded_profile)
         .map_err(|e| e.to_string())?;
 
+    // Without this, zsign complains it can't find the provision file
+    #[cfg(target_os = "windows")]
+    {
+        file.sync_all().map_err(|e| e.to_string())?;
+        drop(file);
+    }
+
     // TODO: Recursive for sub-bundles?
     app.bundle.write_info().map_err(|e| e.to_string())?;
 
