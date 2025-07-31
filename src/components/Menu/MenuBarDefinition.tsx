@@ -240,9 +240,24 @@ export default [
           {
             name: "Clean",
             shortcut: "Ctrl+Shift+C",
-            callback: () => {
-              console.log("Clean Build Folder!");
+            component: ({ shortcut }) => {
+              const { path } = useParams<"path">();
+              const { selectedToolchain } = useIDE();
+              return (
+                <CommandButton
+                  shortcut={shortcut}
+                  command="clean_swift"
+                  parameters={{
+                    folder: path,
+                    toolchainPath: selectedToolchain?.path ?? "",
+                  }}
+                  label="Clean"
+                  useMenuItem
+                  id="cleanMenuBtn"
+                />
+              );
             },
+            componentId: "cleanMenuBtn",
           },
         ],
       },
