@@ -1,21 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import monacoEditorPlugin, {
-  IMonacoEditorOpts,
-} from "vite-plugin-monaco-editor";
-
-// Hack because monacoEditorPlugin is not typed or exported correctly
-const monacoEditorPluginDefault = (monacoEditorPlugin as any).default as (
-  options: IMonacoEditorOpts
-) => any;
+import importMetaUrlPlugin from "@codingame/esbuild-import-meta-url-plugin";
 
 // https://vitejs.dev/config/
-const plugins = [
-  react(),
-  monacoEditorPluginDefault({
-    languageWorkers: ["json", "editorWorkerService"],
-  }),
-];
+const plugins = [react()];
 
 export default defineConfig(async () => ({
   plugins: plugins,
@@ -39,5 +27,15 @@ export default defineConfig(async () => ({
         splash: "./splash.html",
       },
     },
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      plugins: [importMetaUrlPlugin],
+    },
+    include: [
+      "vscode-textmate",
+      "vscode-oniguruma",
+      "@vscode/vscode-languagedetection",
+    ],
   },
 }));

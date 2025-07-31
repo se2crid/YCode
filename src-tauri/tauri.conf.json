@@ -34,7 +34,7 @@
         "width": 1000,
         "height": 700,
         "useHttpsScheme": true,
-        "visible": false,
+        "visible": true,
         "url": "/onboarding"
       },
       {

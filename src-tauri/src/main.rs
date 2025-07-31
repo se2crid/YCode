@@ -11,7 +11,7 @@ mod windows;
 mod builder;
 mod operation;
 mod sideloader;
-
+mod sourcekit_lsp;
 use device::refresh_idevice;
 use sideloader::apple_commands::{
     delete_app_id, delete_stored_credentials, get_apple_email, get_certificates, list_app_ids,
