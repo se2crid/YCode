@@ -6,6 +6,9 @@ import { useIDE } from "../../utilities/IDEContext";
 import CommandButton from "../CommandButton";
 import { useStore } from "../../utilities/StoreContext";
 import { useToast } from "react-toast-plus";
+import { MenuItem } from "@mui/joy";
+import { invoke } from "@tauri-apps/api/core";
+import { initWebSocketAndStartClient } from "../../utilities/lsp-client";
 
 export default [
   {
@@ -258,6 +261,55 @@ export default [
               );
             },
             componentId: "cleanMenuBtn",
+          },
+        ],
+      },
+      {
+        label: "Start LSP",
+        items: [
+          {
+            name: "Start LSP (Testing)",
+            component: () => {
+              const { path } = useParams<"path">();
+              const { selectedToolchain } = useIDE();
+              return (
+                <MenuItem
+                  onClick={async () => {
+                    let port = await invoke<number>("start_sourcekit_server", {
+                      toolchainPath: selectedToolchain?.path ?? "",
+                      folder: path || "",
+                    });
+                    console.log(`SourceKit server started on port ${port}`);
+                    initWebSocketAndStartClient(`ws://localhost:${port}`);
+                  }}
+                  id="startLSPMenuBtn"
+                >
+                  Start LSP (Test)
+                </MenuItem>
+              );
+            },
+            componentId: "startLSPMenuBtn",
+          },
+        ],
+      },
+      {
+        label: "Stop LSP",
+        items: [
+          {
+            name: "Stop LSP (Testing)",
+            component: () => {
+              return (
+                <MenuItem
+                  onClick={async () => {
+                    await invoke<number>("stop_sourcekit_server");
+                  }}
+                  id="stopLSPMenuBtn"
+                >
+                  Stop LSP (Test)
+                </MenuItem>
+              );
+            },
+            componentId: "stopLSPMenuBtn",
           },
         ],
       },

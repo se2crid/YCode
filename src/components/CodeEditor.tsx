@@ -18,6 +18,7 @@ import getThemeServiceOverride from "@codingame/monaco-vscode-theme-service-over
 import getTextMateServiceOverride from "@codingame/monaco-vscode-textmate-service-override";
 import "@codingame/monaco-vscode-swift-default-extension";
 import "@codingame/monaco-vscode-theme-defaults-default-extension";
+import "vscode/localExtensionHost";
 
 // adding worker
 export type WorkerLoader = () => Worker;
