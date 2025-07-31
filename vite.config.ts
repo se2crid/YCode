@@ -20,6 +20,9 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  worker: {
+    format: "es" as const,
+  },
   build: {
     rollupOptions: {
       input: {
@@ -32,10 +35,6 @@ export default defineConfig(async () => ({
     esbuildOptions: {
       plugins: [importMetaUrlPlugin],
     },
-    include: [
-      "vscode-textmate",
-      "vscode-oniguruma",
-      "@vscode/vscode-languagedetection",
-    ],
+    include: ["vscode-textmate", "vscode-oniguruma"],
   },
 }));

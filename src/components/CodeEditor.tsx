@@ -176,16 +176,16 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       };
     }, [editor]);
 
-    // Load file content
     useEffect(() => {
       if (editor) {
         fs.readTextFile(file)
           .then((text) => {
             editor.setValue(text);
+
             setOriginalText(text);
-            // set the language
             getLanguage(file).then((lang) => {
               let model = editor.getModel();
+
               if (model === null) return;
               monaco.editor.setModelLanguage(model, lang);
             });
