@@ -16,6 +16,12 @@ import { initialize } from "@codingame/monaco-vscode-api";
 import getLanguagesServiceOverride from "@codingame/monaco-vscode-languages-service-override";
 import getThemeServiceOverride from "@codingame/monaco-vscode-theme-service-override";
 import getTextMateServiceOverride from "@codingame/monaco-vscode-textmate-service-override";
+import getEditorServiceOverride from "@codingame/monaco-vscode-editor-service-override";
+import {
+  RegisteredFileSystemProvider,
+  RegisteredMemoryFile,
+  registerFileSystemOverlay,
+} from "@codingame/monaco-vscode-files-service-override";
 import "@codingame/monaco-vscode-swift-default-extension";
 import "@codingame/monaco-vscode-theme-defaults-default-extension";
 import "vscode/localExtensionHost";
@@ -52,11 +58,16 @@ await initialize({
   ...getTextMateServiceOverride(),
   ...getThemeServiceOverride(),
   ...getLanguagesServiceOverride(),
+  ...getEditorServiceOverride((a) => {
+    console.log("Open editor called", a);
+    return Promise.resolve(undefined);
+  }),
 });
 
 export interface CodeEditorProps {
   file: string;
   setUnsaved: (unsaved: boolean) => void;
+  provider: RegisteredFileSystemProvider;
 }
 export interface CodeEditorHandles {
   file: string;
@@ -90,7 +101,7 @@ const getLanguage = async (filename: string) => {
 };
 
 const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
-  ({ file, setUnsaved }, ref) => {
+  ({ file, setUnsaved, provider }, ref) => {
     const [editor, setEditor] =
       useState<monaco.editor.IStandaloneCodeEditor | null>(null);
     const monacoEl = useRef(null);
@@ -99,6 +110,7 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
     const [failedReason, setFailedReason] = useState<string | null>(null);
 
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+    const registeredFileRef = useRef<monaco.Uri | null>(null);
 
     useEffect(() => {
       editorRef.current = editor;
@@ -178,17 +190,29 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
     }, [editor]);
 
     useEffect(() => {
-      if (editor) {
+      if (editor && file && provider) {
         fs.readTextFile(file)
           .then((text) => {
-            editor.setValue(text);
-
             setOriginalText(text);
-            getLanguage(file).then((lang) => {
-              let model = editor.getModel();
+            getLanguage(file).then(async (lang) => {
+              const provider = new RegisteredFileSystemProvider(false);
+              let uri = monaco.Uri.file(file);
+              //if (registeredFileRef.current === null) {
+              let memoryFile = new RegisteredMemoryFile(uri, text);
+              provider.registerFile(memoryFile);
+              registeredFileRef.current = uri;
+              //}
 
-              if (model === null) return;
-              monaco.editor.setModelLanguage(model, lang);
+              const overlayDisposable = registerFileSystemOverlay(1, provider);
+              try {
+                let modelRef = await monaco.editor.createModelReference(uri);
+
+                editor.setModel(modelRef.object.textEditorModel);
+              } catch (error) {
+                console.error("Error creating model reference:", error);
+                setFailedReason("Failed to create model reference");
+                return;
+              }
             });
           })
           .catch((error) => {
@@ -199,7 +223,7 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
             setFailedReason(err);
           });
       }
-    }, [file, editor]);
+    }, [file, editor, provider]);
 
     useEffect(() => {
       if (editor && originalText) {

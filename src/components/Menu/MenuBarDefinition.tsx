@@ -279,8 +279,10 @@ export default [
                       toolchainPath: selectedToolchain?.path ?? "",
                       folder: path || "",
                     });
-                    console.log(`SourceKit server started on port ${port}`);
-                    initWebSocketAndStartClient(`ws://localhost:${port}`);
+                    initWebSocketAndStartClient(
+                      `ws://localhost:${port}`,
+                      path || ""
+                    );
                   }}
                   id="startLSPMenuBtn"
                 >

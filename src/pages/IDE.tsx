@@ -9,6 +9,11 @@ import Console from "../components/Tiles/Console";
 import { useStore } from "../utilities/StoreContext";
 import { useNavigate, useParams } from "react-router";
 import { useIDE } from "../utilities/IDEContext";
+import {
+  RegisteredFileSystemProvider,
+  RegisteredMemoryFile,
+  registerFileSystemOverlay,
+} from "@codingame/monaco-vscode-files-service-override";
 
 export interface IDEProps {}
 
@@ -19,6 +24,8 @@ export default () => {
   const [theme] = useStore<"light" | "dark">("appearance/theme", "light");
   const { path } = useParams<"path">();
   const { openFolderDialog } = useIDE();
+  const [fileSystemProvider, setFileSystemProvider] =
+    useState<RegisteredFileSystemProvider | null>(null);
 
   if (!path) {
     throw new Error("Path parameter is required in IDE component");
@@ -45,6 +52,24 @@ export default () => {
     }
   }, [openFiles]);
 
+  useEffect(() => {
+    let dispose = () => {};
+
+    if (path) {
+      const provider = new RegisteredFileSystemProvider(false);
+      //const overlayDisposable = registerFileSystemOverlay(1, provider);
+      // console.log(overlayDisposable);
+      // dispose = () => {
+      //   overlayDisposable.dispose();
+      //   console.log("what!!!");
+      // };
+      setFileSystemProvider(provider);
+    }
+    return () => {
+      dispose();
+    };
+  }, [path]);
+
   const openNewFile = useCallback((file: string) => {
     setOpenFile(file);
     setOpenFiles((oF) => {
@@ -69,12 +94,15 @@ export default () => {
           direction={SplitDirection.Vertical}
           initialSizes={[70, 30]}
         >
-          <Editor
-            openFiles={openFiles}
-            focusedFile={openFile}
-            setSaveFile={setSaveFile}
-            setOpenFiles={setOpenFiles}
-          />
+          {fileSystemProvider && (
+            <Editor
+              provider={fileSystemProvider}
+              openFiles={openFiles}
+              focusedFile={openFile}
+              setSaveFile={setSaveFile}
+              setOpenFiles={setOpenFiles}
+            />
+          )}
           <Console />
         </Splitter>
       </Splitter>

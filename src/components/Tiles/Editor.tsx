@@ -11,11 +11,14 @@ import {
 } from "@mui/joy";
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
+import { RegisteredFileSystemProvider } from "@codingame/monaco-vscode-files-service-override";
+
 export interface EditorProps {
   openFiles: string[];
   setOpenFiles: Dispatch<SetStateAction<string[]>>;
   focusedFile: string | null;
   setSaveFile: (save: () => void) => void;
+  provider: RegisteredFileSystemProvider;
 }
 
 export default ({
@@ -23,6 +26,7 @@ export default ({
   focusedFile,
   setSaveFile,
   setOpenFiles,
+  provider,
 }: EditorProps) => {
   const [tabs, setTabs] = useState<
     {
@@ -126,6 +130,7 @@ export default ({
                     unsaved.filter((unsavedFile) => unsavedFile !== tab.file)
                   );
               }}
+              provider={provider}
             />
           </TabPanel>
         ))}

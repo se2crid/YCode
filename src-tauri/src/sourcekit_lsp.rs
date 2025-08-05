@@ -63,7 +63,6 @@ pub async fn start_sourcekit_server(
         .join("sourcekit-lsp")
         .to_string_lossy()
         .to_string();
-
     let mut child = Command::new(sourcekit_bin)
         .current_dir(folder)
         .stdin(std::process::Stdio::piped())
@@ -155,6 +154,7 @@ pub async fn start_sourcekit_server(
             match reader.read_exact(&mut content).await {
                 Ok(_) => {
                     let message = String::from_utf8_lossy(&content).to_string();
+                    println!("{}", message);
                     if let Err(_) = from_lsp_tx.send(message) {
                         // No receivers, continue
                     }
