@@ -195,6 +195,8 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
           .then((text) => {
             setOriginalText(text);
             getLanguage(file).then(async (lang) => {
+              // Just a temporary setup for debugging to make sure that I'm not the problem
+              // When the Error: Model not found error is resolved I will use the global provider and re-enable strict mode
               const provider = new RegisteredFileSystemProvider(false);
               let uri = monaco.Uri.file(file);
               //if (registeredFileRef.current === null) {
