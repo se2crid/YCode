@@ -9,7 +9,6 @@ import {
 import * as monaco from "monaco-editor";
 import "./CodeEditor.css";
 import { useColorScheme } from "@mui/joy/styles";
-import { path } from "@tauri-apps/api";
 import * as fs from "@tauri-apps/plugin-fs";
 
 import { initialize } from "@codingame/monaco-vscode-api";
@@ -17,11 +16,7 @@ import getLanguagesServiceOverride from "@codingame/monaco-vscode-languages-serv
 import getThemeServiceOverride from "@codingame/monaco-vscode-theme-service-override";
 import getTextMateServiceOverride from "@codingame/monaco-vscode-textmate-service-override";
 import getEditorServiceOverride from "@codingame/monaco-vscode-editor-service-override";
-import {
-  RegisteredFileSystemProvider,
-  RegisteredMemoryFile,
-  registerFileSystemOverlay,
-} from "@codingame/monaco-vscode-files-service-override";
+import getModelServiceOverride from "@codingame/monaco-vscode-model-service-override";
 import "@codingame/monaco-vscode-swift-default-extension";
 import "@codingame/monaco-vscode-theme-defaults-default-extension";
 import "vscode/localExtensionHost";
@@ -58,50 +53,26 @@ await initialize({
   ...getTextMateServiceOverride(),
   ...getThemeServiceOverride(),
   ...getLanguagesServiceOverride(),
-  ...getEditorServiceOverride((a) => {
-    console.log("Open editor called", a);
-    return Promise.resolve(undefined);
+  ...getEditorServiceOverride(() => {
+    return new Promise((resolve) => {
+      console.log("hi");
+      resolve(undefined);
+    });
   }),
+  ...getModelServiceOverride(),
 });
 
 export interface CodeEditorProps {
   file: string;
   setUnsaved: (unsaved: boolean) => void;
-  provider: RegisteredFileSystemProvider;
 }
 export interface CodeEditorHandles {
   file: string;
   saveFile: () => void;
 }
 
-const getLanguage = async (filename: string) => {
-  if (filename === "Makefile") {
-    return "make";
-  }
-  const ext = await path.extname(filename);
-  const extToLang: { [key: string]: string } = {
-    js: "javascript",
-    ts: "typescript",
-    py: "python",
-    rb: "ruby",
-    go: "go",
-    rs: "rust",
-    swift: "swift",
-    json: "json",
-    // objc priority, this is an ios editor after all (sorry c)
-    m: "objective-c",
-    mi: "objective-c",
-    h: "objective-c",
-    xm: "objective-c",
-    xmi: "objective-c",
-    sh: "shell",
-    toml: "toml",
-  };
-  return extToLang[ext] || "plaintext";
-};
-
 const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
-  ({ file, setUnsaved, provider }, ref) => {
+  ({ file, setUnsaved }, ref) => {
     const [editor, setEditor] =
       useState<monaco.editor.IStandaloneCodeEditor | null>(null);
     const monacoEl = useRef(null);
@@ -110,7 +81,6 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
     const [failedReason, setFailedReason] = useState<string | null>(null);
 
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-    const registeredFileRef = useRef<monaco.Uri | null>(null);
 
     useEffect(() => {
       editorRef.current = editor;
@@ -127,13 +97,11 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       }
     }, [file, setUnsaved]);
 
-    // Exposes parameters to the ref on the parent component
     useImperativeHandle(ref, () => ({
       saveFile,
       file,
     }));
 
-    // Create editor only once when monacoEl is available
     useEffect(() => {
       if (monacoEl.current && !editor) {
         let colorScheme = mode;
@@ -153,14 +121,12 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
 
         setEditor(newEditor);
 
-        // Proper cleanup when component unmounts
         return () => {
           newEditor.dispose();
         };
       }
-    }, []); // Empty dependency array - runs once on mount
+    }, []);
 
-    // Handle theme changes
     useEffect(() => {
       if (!editor) return;
 
@@ -174,7 +140,6 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       monaco.editor.setTheme("vs-" + colorScheme);
     }, [mode, editor]);
 
-    // Handle resize
     useEffect(() => {
       if (!monacoEl.current || !editor) return;
 
@@ -190,42 +155,18 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
     }, [editor]);
 
     useEffect(() => {
-      if (editor && file && provider) {
-        fs.readTextFile(file)
-          .then((text) => {
-            setOriginalText(text);
-            getLanguage(file).then(async (lang) => {
-              // Just a temporary setup for debugging to make sure that I'm not the problem
-              // When the Error: Model not found error is resolved I will use the global provider and re-enable strict mode
-              const provider = new RegisteredFileSystemProvider(false);
-              let uri = monaco.Uri.file(file);
-              //if (registeredFileRef.current === null) {
-              let memoryFile = new RegisteredMemoryFile(uri, text);
-              provider.registerFile(memoryFile);
-              registeredFileRef.current = uri;
-              //}
+      (async () => {
+        if (editor && file) {
+          let uri = monaco.Uri.file(file);
+          let modelRef = await monaco.editor.createModelReference(uri);
 
-              const overlayDisposable = registerFileSystemOverlay(1, provider);
-              try {
-                let modelRef = await monaco.editor.createModelReference(uri);
-
-                editor.setModel(modelRef.object.textEditorModel);
-              } catch (error) {
-                console.error("Error creating model reference:", error);
-                setFailedReason("Failed to create model reference");
-                return;
-              }
-            });
-          })
-          .catch((error) => {
-            let err = error.toString();
-            if (err.includes("did not contain valid UTF-8")) {
-              err = "Unable to decode file as UTF-8";
-            }
-            setFailedReason(err);
-          });
-      }
-    }, [file, editor, provider]);
+          editor.setModel(modelRef.object.textEditorModel);
+        }
+      })().catch((e) => {
+        console.error(e);
+        setFailedReason("Failed to load file: " + e.message);
+      });
+    }, [file, editor]);
 
     useEffect(() => {
       if (editor && originalText) {

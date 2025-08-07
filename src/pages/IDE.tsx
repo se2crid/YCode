@@ -9,11 +9,8 @@ import Console from "../components/Tiles/Console";
 import { useStore } from "../utilities/StoreContext";
 import { useNavigate, useParams } from "react-router";
 import { useIDE } from "../utilities/IDEContext";
-import {
-  RegisteredFileSystemProvider,
-  RegisteredMemoryFile,
-  registerFileSystemOverlay,
-} from "@codingame/monaco-vscode-files-service-override";
+import { registerFileSystemOverlay } from "@codingame/monaco-vscode-files-service-override";
+import TauriFileSystemProvider from "../utilities/TauriFileSystemProvider";
 
 export interface IDEProps {}
 
@@ -24,8 +21,6 @@ export default () => {
   const [theme] = useStore<"light" | "dark">("appearance/theme", "light");
   const { path } = useParams<"path">();
   const { openFolderDialog } = useIDE();
-  const [fileSystemProvider, setFileSystemProvider] =
-    useState<RegisteredFileSystemProvider | null>(null);
 
   if (!path) {
     throw new Error("Path parameter is required in IDE component");
@@ -56,14 +51,12 @@ export default () => {
     let dispose = () => {};
 
     if (path) {
-      const provider = new RegisteredFileSystemProvider(false);
-      //const overlayDisposable = registerFileSystemOverlay(1, provider);
-      // console.log(overlayDisposable);
-      // dispose = () => {
-      //   overlayDisposable.dispose();
-      //   console.log("what!!!");
-      // };
-      setFileSystemProvider(provider);
+      const provider = new TauriFileSystemProvider(false);
+      const overlayDisposable = registerFileSystemOverlay(1, provider);
+      dispose = () => {
+        overlayDisposable.dispose();
+        provider.dispose();
+      };
     }
     return () => {
       dispose();
@@ -94,15 +87,12 @@ export default () => {
           direction={SplitDirection.Vertical}
           initialSizes={[70, 30]}
         >
-          {fileSystemProvider && (
-            <Editor
-              provider={fileSystemProvider}
-              openFiles={openFiles}
-              focusedFile={openFile}
-              setSaveFile={setSaveFile}
-              setOpenFiles={setOpenFiles}
-            />
-          )}
+          <Editor
+            openFiles={openFiles}
+            focusedFile={openFile}
+            setSaveFile={setSaveFile}
+            setOpenFiles={setOpenFiles}
+          />
           <Console />
         </Splitter>
       </Splitter>
