@@ -10,7 +10,7 @@ use crate::{
 };
 use std::{io::Write, path::PathBuf};
 use tauri::{Emitter, Manager};
-use tauri_plugin_shell::{process::CommandEvent, ShellExt};
+use zsign_rust::ZSignOptions;
 
 pub async fn sideload_app(
     handle: &tauri::AppHandle,
@@ -337,66 +337,38 @@ pub async fn sideload_app(
     app.bundle.write_info().map_err(|e| e.to_string())?;
 
     window
-        .emit("build-output", "Signining app...".to_string())
+        .emit("build-output", "Signing app...".to_string())
         .ok();
 
-    let zsign_command = handle.shell().sidecar("zsign").unwrap().args([
-        "-k",
-        cert.get_private_key_file_path().to_str().unwrap(),
-        "-c",
-        cert.get_certificate_file_path().to_str().unwrap(),
-        "-m",
-        profile_path.to_str().unwrap(),
-        app.bundle.bundle_dir.to_str().unwrap(),
-    ]);
-    let (mut rx, mut _child) = zsign_command.spawn().expect("Failed to spawn zsign");
-
-    let mut signing_failed = false;
-    while let Some(event) = rx.recv().await {
-        match event {
-            CommandEvent::Stdout(line_bytes) | CommandEvent::Stderr(line_bytes) => {
-                let line = String::from_utf8_lossy(&line_bytes);
-                window
-                    .emit("build-output", Some(line))
-                    .expect("failed to emit event");
-            }
-            CommandEvent::Terminated(result) => {
-                if result.code != Some(0) {
-                    window
-                        .emit("build-output", "App signing failed!".to_string())
-                        .ok();
-                    signing_failed = true;
-                    break;
-                }
-                window.emit("build-output", "App signed!").ok();
-
-                window
-                    .emit(
-                        "build-output",
-                        "Installing app (Transfer)... 0%".to_string(),
-                    )
-                    .ok();
-
-                let res = install_app(&device, &app.bundle.bundle_dir, |percentage| {
-                    window
-                        .emit("build-output", format!("Installing app... {}%", percentage))
-                        .expect("failed to emit event");
-                })
-                .await;
-                if let Err(e) = res {
-                    window
-                        .emit("build-output", format!("Failed to install app: {:?}", e))
-                        .ok();
-                    signing_failed = true;
-                }
-                break;
-            }
-            _ => {}
+    match ZSignOptions::new(app.bundle.bundle_dir.to_str().unwrap())
+        .with_cert_file(cert.get_certificate_file_path().to_str().unwrap())
+        .with_pkey_file(cert.get_private_key_file_path().to_str().unwrap())
+        .with_prov_file(profile_path.to_str().unwrap())
+        .sign()
+    {
+        Ok(_) => {}
+        Err(e) => {
+            return emit_error_and_return(window, &format!("Failed to sign app: {:?}", e));
         }
-    }
+    };
 
-    if signing_failed {
-        return Err("Signing or installation failed".to_string());
+    window.emit("build-output", "App signed!").ok();
+
+    window
+        .emit(
+            "build-output",
+            "Installing app (Transfer)... 0%".to_string(),
+        )
+        .ok();
+
+    let res = install_app(&device, &app.bundle.bundle_dir, |percentage| {
+        window
+            .emit("build-output", format!("Installing app... {}%", percentage))
+            .expect("failed to emit event");
+    })
+    .await;
+    if let Err(e) = res {
+        return emit_error_and_return(window, &format!("Failed to install app: {:?}", e));
     }
 
     Ok(())
