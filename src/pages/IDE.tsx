@@ -9,6 +9,8 @@ import Console from "../components/Tiles/Console";
 import { useStore } from "../utilities/StoreContext";
 import { useNavigate, useParams } from "react-router";
 import { useIDE } from "../utilities/IDEContext";
+import { registerFileSystemOverlay } from "@codingame/monaco-vscode-files-service-override";
+import TauriFileSystemProvider from "../utilities/TauriFileSystemProvider";
 
 export interface IDEProps {}
 
@@ -44,6 +46,22 @@ export default () => {
       setOpenFile(openFiles[0]);
     }
   }, [openFiles]);
+
+  useEffect(() => {
+    let dispose = () => {};
+
+    if (path) {
+      const provider = new TauriFileSystemProvider(false);
+      const overlayDisposable = registerFileSystemOverlay(1, provider);
+      dispose = () => {
+        overlayDisposable.dispose();
+        provider.dispose();
+      };
+    }
+    return () => {
+      dispose();
+    };
+  }, [path]);
 
   const openNewFile = useCallback((file: string) => {
     setOpenFile(file);

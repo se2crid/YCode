@@ -9,15 +9,17 @@ import {
 import * as monaco from "monaco-editor";
 import "./CodeEditor.css";
 import { useColorScheme } from "@mui/joy/styles";
-import { path } from "@tauri-apps/api";
 import * as fs from "@tauri-apps/plugin-fs";
 
 import { initialize } from "@codingame/monaco-vscode-api";
 import getLanguagesServiceOverride from "@codingame/monaco-vscode-languages-service-override";
 import getThemeServiceOverride from "@codingame/monaco-vscode-theme-service-override";
 import getTextMateServiceOverride from "@codingame/monaco-vscode-textmate-service-override";
+import getEditorServiceOverride from "@codingame/monaco-vscode-editor-service-override";
+import getModelServiceOverride from "@codingame/monaco-vscode-model-service-override";
 import "@codingame/monaco-vscode-swift-default-extension";
 import "@codingame/monaco-vscode-theme-defaults-default-extension";
+import "vscode/localExtensionHost";
 
 // adding worker
 export type WorkerLoader = () => Worker;
@@ -51,6 +53,13 @@ await initialize({
   ...getTextMateServiceOverride(),
   ...getThemeServiceOverride(),
   ...getLanguagesServiceOverride(),
+  ...getEditorServiceOverride(() => {
+    return new Promise((resolve) => {
+      console.log("hi");
+      resolve(undefined);
+    });
+  }),
+  ...getModelServiceOverride(),
 });
 
 export interface CodeEditorProps {
@@ -61,32 +70,6 @@ export interface CodeEditorHandles {
   file: string;
   saveFile: () => void;
 }
-
-const getLanguage = async (filename: string) => {
-  if (filename === "Makefile") {
-    return "make";
-  }
-  const ext = await path.extname(filename);
-  const extToLang: { [key: string]: string } = {
-    js: "javascript",
-    ts: "typescript",
-    py: "python",
-    rb: "ruby",
-    go: "go",
-    rs: "rust",
-    swift: "swift",
-    json: "json",
-    // objc priority, this is an ios editor after all (sorry c)
-    m: "objective-c",
-    mi: "objective-c",
-    h: "objective-c",
-    xm: "objective-c",
-    xmi: "objective-c",
-    sh: "shell",
-    toml: "toml",
-  };
-  return extToLang[ext] || "plaintext";
-};
 
 const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
   ({ file, setUnsaved }, ref) => {
@@ -114,13 +97,11 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       }
     }, [file, setUnsaved]);
 
-    // Exposes parameters to the ref on the parent component
     useImperativeHandle(ref, () => ({
       saveFile,
       file,
     }));
 
-    // Create editor only once when monacoEl is available
     useEffect(() => {
       if (monacoEl.current && !editor) {
         let colorScheme = mode;
@@ -140,14 +121,12 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
 
         setEditor(newEditor);
 
-        // Proper cleanup when component unmounts
         return () => {
           newEditor.dispose();
         };
       }
-    }, []); // Empty dependency array - runs once on mount
+    }, []);
 
-    // Handle theme changes
     useEffect(() => {
       if (!editor) return;
 
@@ -161,7 +140,6 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
       monaco.editor.setTheme("vs-" + colorScheme);
     }, [mode, editor]);
 
-    // Handle resize
     useEffect(() => {
       if (!monacoEl.current || !editor) return;
 
@@ -177,27 +155,17 @@ const CodeEditor = forwardRef<CodeEditorHandles, CodeEditorProps>(
     }, [editor]);
 
     useEffect(() => {
-      if (editor) {
-        fs.readTextFile(file)
-          .then((text) => {
-            editor.setValue(text);
+      (async () => {
+        if (editor && file) {
+          let uri = monaco.Uri.file(file);
+          let modelRef = await monaco.editor.createModelReference(uri);
 
-            setOriginalText(text);
-            getLanguage(file).then((lang) => {
-              let model = editor.getModel();
-
-              if (model === null) return;
-              monaco.editor.setModelLanguage(model, lang);
-            });
-          })
-          .catch((error) => {
-            let err = error.toString();
-            if (err.includes("did not contain valid UTF-8")) {
-              err = "Unable to decode file as UTF-8";
-            }
-            setFailedReason(err);
-          });
-      }
+          editor.setModel(modelRef.object.textEditorModel);
+        }
+      })().catch((e) => {
+        console.error(e);
+        setFailedReason("Failed to load file: " + e.message);
+      });
     }, [file, editor]);
 
     useEffect(() => {

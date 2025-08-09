@@ -11,6 +11,7 @@ import {
 } from "@mui/joy";
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
+
 export interface EditorProps {
   openFiles: string[];
   setOpenFiles: Dispatch<SetStateAction<string[]>>;

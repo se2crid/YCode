@@ -11,6 +11,7 @@ mod windows;
 mod builder;
 mod operation;
 mod sideloader;
+#[macro_use]
 mod sourcekit_lsp;
 use device::refresh_idevice;
 use sideloader::apple_commands::{
@@ -25,10 +26,12 @@ use builder::swift::{
     build_swift, clean_swift, deploy_swift, get_swiftly_toolchains, get_toolchain_info,
     has_darwin_sdk, validate_toolchain,
 };
+use sourcekit_lsp::{get_server_status, start_sourcekit_server, stop_sourcekit_server};
 use windows::{has_wsl, is_windows};
 
 fn main() {
     tauri::Builder::default()
+        .manage(sourcekit_lsp::create_server_state())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
@@ -54,6 +57,9 @@ fn main() {
             get_toolchain_info,
             install_sdk_operation,
             has_darwin_sdk,
+            start_sourcekit_server,
+            stop_sourcekit_server,
+            get_server_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
