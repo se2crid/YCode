@@ -1,4 +1,7 @@
-use icloud_auth::{AnisetteConfiguration, AppleAccount};
+use isideload::{
+    device::DeviceInfo, AnisetteConfiguration, AppleAccount, DeveloperDeviceType, DeveloperSession,
+    DeveloperTeam,
+};
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 use std::{
@@ -8,12 +11,8 @@ use std::{
 use tauri::{Emitter, Listener, Manager};
 
 use crate::{
-    device::DeviceInfo,
     emit_error_and_return,
-    sideloader::{
-        apple_commands::{get_stored_credentials, store_credentials},
-        developer_session::{DeveloperDeviceType, DeveloperSession, DeveloperTeam},
-    },
+    sideloader::apple_commands::{get_stored_credentials, store_credentials},
 };
 
 pub static APPLE_ACCOUNT: OnceCell<Mutex<Option<Arc<AppleAccount>>>> = OnceCell::new();
@@ -51,7 +50,7 @@ pub async fn get_developer_session(
         Err(e) => {
             // This code means we have been logged in for too long and we must relogin again
             let is_22411 = match &e {
-                icloud_auth::Error::AuthSrpWithMessage(code, _) => *code == -22411,
+                isideload::Error::Auth(code, _) => *code == -22411,
                 _ => false,
             };
             if is_22411 {
@@ -208,7 +207,7 @@ pub async fn login(
     }
     let account = Arc::new(account.unwrap());
     window
-        .emit("build-output", "Logged in successfully".to_string())
+        .emit("build-output", "Successfully logged in".to_string())
         .map_err(|e| e.to_string())?;
 
     Ok(account)
