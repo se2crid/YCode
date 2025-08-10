@@ -7,9 +7,8 @@ use crate::{
         packer::{pack, zip_ipa},
     },
     emit_error_and_return,
-    sideloader::sideload::sideload_app,
+    sideloader::{device::DeviceInfo, sideload::sideload_app},
 };
-use isideload::device::DeviceInfo;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
