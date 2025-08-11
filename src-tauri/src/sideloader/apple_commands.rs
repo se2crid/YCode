@@ -1,4 +1,4 @@
-use isideload::{DeveloperDeviceType, ListAppIdsResponse};
+use isideload::developer_session::{DeveloperDeviceType, ListAppIdsResponse};
 use keyring::{Entry, Error as KeyringError};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;

@@ -1,4 +1,4 @@
-use isideload::{AnisetteConfiguration, AppleAccount, DeveloperSession};
+use isideload::{developer_session::DeveloperSession, AnisetteConfiguration, AppleAccount};
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 use std::{
